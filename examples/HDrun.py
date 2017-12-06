@@ -4,6 +4,7 @@ import h5py
 import numpy as np
 from gfunc2D.gfunc2D import gfunc2D
 from gfunc2D.gridtools import load_as_dict
+from gfunc2D.gplot import gplot_loglik, gplot_contour
 
 inputfile = 'HDinput.txt'
 outputdir = 'HDoutput'
@@ -44,5 +45,10 @@ for i, name in enumerate(data['name']):
 
 	outfile = os.path.join(outputdir, name)
 	np.savez(outfile, g=g, tau_array=tau_array, feh_array=feh_array)
+
+	loglik_plot = os.path.join(outputdir, name + '_loglik.pdf')
+	contour_plot = os.path.join(outputdir, name + '_contour.pdf')
+	gplot_loglik(g, tau_array, feh_array, savename=loglik_plot, show=False)
+	gplot_contour(g, tau_array, feh_array, savename=contour_plot, show=False)
 
 	print(' ' + str(round((i+1) / len(data) * 100)) + '%')
