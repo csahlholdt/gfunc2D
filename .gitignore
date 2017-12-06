@@ -3,3 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# OSX stuff
+.DS_Store
+
+# Example output
+HDoutput/

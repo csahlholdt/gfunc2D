@@ -1,0 +1,3 @@
+# Name   FeH    FeH_unc Teff  Teff_unc  logg  logg_unc  parallax parallax_unc  B      B_unc  V     V_unc
+HD80606  0.316	0.018   5584  13        4.40  0.03      15.33    0.26          9.78   0.03   9.00  0.02
+HD80607  0.303	0.018   5506  15        4.38  0.03      15.22    0.28          9.937  0.029  9.07  0.019
