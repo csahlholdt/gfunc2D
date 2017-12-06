@@ -26,6 +26,7 @@ def gplot_loglik(g, tau_array, feh_array, smooth=True, savename=None, show=True)
     plot_lims = (tau_array[0]-dtau, tau_array[-1]+dtau, feh_array[-1]+dfeh, feh_array[0]-dfeh)
     cax = ax.imshow(np.log10(C), extent=plot_lims, aspect='auto', interpolation='none')
     cbar = fig.colorbar(cax)
+    cbar.set_label('log10(G-function)')
 
     ax.set_xlabel('Age [Gyr]')
     ax.set_ylabel('[Fe/H]')
@@ -63,10 +64,9 @@ def gplot_contour(g, tau_array, feh_array, smooth=True, savename=None, show=True
     ax1 = plt.subplot2grid((4, 4), (0, 0), colspan=3, sharex=ax0)
     ax2 = plt.subplot2grid((4, 4), (1, 3), rowspan=3, sharey=ax0)
 
-#    percent = [70, 80, 90, 95, 99]
-    percent = [95, 99]
+    percent = [70, 80, 90, 95, 99]
     for p in percent:
-        percentiles = np.percentile(np.log10(C), percent)
+        percentiles = np.percentile(np.log10(C[C > 1e-15]), percent)
     ax0.contour(tau_array, feh_array, np.log10(C), percentiles, colors='k', linestyles='solid')
 
     ax0.set_xlabel('Age [Gyr]')
