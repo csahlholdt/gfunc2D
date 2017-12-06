@@ -4,7 +4,7 @@ import matplotlib.style as mpls
 mpls.use('classic')
 
 
-def gfunc_loglik(g, tau_array, feh_array, smooth=True, savename=None, show=True):
+def gplot_loglik(g, tau_array, feh_array, smooth=True, savename=None, show=True):
     # Add small number to allow logarithmic scale
     eps = 1e-20
     A = g.T + eps
@@ -42,7 +42,7 @@ def gfunc_loglik(g, tau_array, feh_array, smooth=True, savename=None, show=True)
         plt.show()
 
 
-def gfunc_contour(g, tau_array, feh_array, smooth=True, savename=None, show=True):
+def gplot_contour(g, tau_array, feh_array, smooth=True, savename=None, show=True):
     # Add small number to allow logarithmic scale
     eps = 1e-20
     A = g.T + eps
@@ -63,10 +63,9 @@ def gfunc_contour(g, tau_array, feh_array, smooth=True, savename=None, show=True
     ax1 = plt.subplot2grid((4, 4), (0, 0), colspan=3, sharex=ax0)
     ax2 = plt.subplot2grid((4, 4), (1, 3), rowspan=3, sharey=ax0)
 
-    percent = [70, 80, 90, 95, 99]
-    #percentiles = []
+#    percent = [70, 80, 90, 95, 99]
+    percent = [95, 99]
     for p in percent:
-#        percentiles.append(np.percentile(np.log10(C), p))
         percentiles = np.percentile(np.log10(C), percent)
     ax0.contour(tau_array, feh_array, np.log10(C), percentiles, colors='k', linestyles='solid')
 
@@ -75,6 +74,8 @@ def gfunc_contour(g, tau_array, feh_array, smooth=True, savename=None, show=True
     ax0.invert_yaxis()
     ax0.grid()
 
+    dtau = tau_array[1] - tau_array[0]
+    dfeh = feh_array[1] - feh_array[0]
     ax0.set_xlim(tau_array[0]-dtau, tau_array[-1]+dtau)
     ax0.set_ylim(feh_array[0]-dfeh, feh_array[-1]+dfeh)
 
