@@ -8,8 +8,8 @@ Python version of the MATLAB script gFunc2D.m
 
 import numpy as np
 import h5py
-import gridtools
-from marg_mu import marginalise_mu
+import gfunc2D.gridtools as gridtools
+from gfunc2D.marg_mu import marginalise_mu
 
 
 def gfunc2D(isogrid, fitparams, alpha, isodict=None):
