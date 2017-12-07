@@ -42,6 +42,8 @@ def gplot_loglik(g, tau_array, feh_array, smooth=True, savename=None, show=True)
     if show:
         plt.show()
 
+    plt.close(fig)
+
 
 def gplot_contour(g, tau_array, feh_array, smooth=True, savename=None, show=True):
     # Add small number to allow logarithmic scale
@@ -101,3 +103,5 @@ def gplot_contour(g, tau_array, feh_array, smooth=True, savename=None, show=True
 
     if show:
         plt.show()
+
+    plt.close(fig)
