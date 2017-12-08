@@ -55,7 +55,6 @@ def mu_mode(plx_obs, plx_sigma, mu0, w, method='newton'):
             try:
                 x0 = newton(fx, x1, fx_prime)
             except:
-                print('no')
                 return None
     elif method == 'bisect':
         xtest = np.linspace(0.001, 10)
@@ -68,7 +67,6 @@ def mu_mode(plx_obs, plx_sigma, mu0, w, method='newton'):
                 xb1, xb2 = xtest[i], xtest[i+1]
                 break
         else:
-            print('no')
             return None
 
         # Find f(x)=0 by bisection
