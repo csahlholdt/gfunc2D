@@ -3,7 +3,7 @@ import h5py
 import os
 
 
-def create_YY_lib(datadir, libfile):
+def create_YY_grid(datadir, gridfile):
     # tau values [Gyr]:
     tau = np.arange(0.1, 15.1, 0.1)
 
@@ -33,10 +33,10 @@ def create_YY_lib(datadir, libfile):
               ('Ks', 'mag'),
               ('G', 'mag')]
 
-    print("Building YY isochrone library from files in directory '"
+    print("Building YY isochrone grid from files in directory '"
           + datadir + "'...\n")
 
-    with h5py.File(libfile) as library:
+    with h5py.File(gridfile) as YYgrid:
         for datafile in isofiles:
             print("Processing '" + datafile + "'...")
 
@@ -73,9 +73,9 @@ def create_YY_lib(datadir, libfile):
                 G = V - 0.0354 - 0.0561*VmI - 0.1767*VmI**2 - 0.0108*VmI**3
                 data_mags[:, 12] = G
 
-                # Store the data in the library file
+                # Store the data in the grid file
                 for ind, (pname, punit) in enumerate(params):
-                    library[gridpath + pname] = data_mags[:, ind]
-                    library[gridpath + pname].attrs.create('unit', np.string_(punit))
+                    YYgrid[gridpath + pname] = data_mags[:, ind]
+                    YYgrid[gridpath + pname].attrs.create('unit', np.string_(punit))
 
     print("\nBuild done!")

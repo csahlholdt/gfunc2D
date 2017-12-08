@@ -57,7 +57,8 @@ def Z_age_from_data(datafile):
 def feh_age_from_filename(datafile):
     '''
     Returns the metallicity and age taken from the filename. The metallicity is
-    assumed to be the first number in the filename and the age the second.
+    assumed to be the first number in the filename and the age the second. The
+    age should be in Gyr.
 
     Parameters
     ----------
@@ -68,17 +69,20 @@ def feh_age_from_filename(datafile):
     -------
     feh : float
         [Fe/H] as given in the filename
+
     age : float
         Age as given in the filename
     '''
+    # Find all substrings in the filename which are numbers
     re_match = re.findall('-?[0-9\.]+', datafile)
+    # Take feh and age from the first two matches
     feh, age = re_match[:2]
 
     return float(feh), float(age)
 
 
-def add_isotable_to_lib(datafile, libfile, params, units, solar_Z=0.0152,
-                        feh_age_filename=True):
+def add_isotable_to_grid(datafile, gridfile, params, units, solar_Z=0.0152,
+                        feh_age_filename=True, append_mags=None):
     '''
     Adds isochrone(s) from a single isochrone table to an isochrone grid file.
 
@@ -87,7 +91,7 @@ def add_isotable_to_lib(datafile, libfile, params, units, solar_Z=0.0152,
     datafile : str
         Name of the isochrone table (including the path).
 
-    libfile : str
+    gridfile : str
         Name of the isochrone grid file (including the path).
         If it does not exist it will be created.
 
@@ -103,7 +107,7 @@ def add_isotable_to_lib(datafile, libfile, params, units, solar_Z=0.0152,
         Default value: 0.0152
 
     feh_age_filename : bool, optional
-        If True, the metallicity and age is taken from the filename. Note that
+        If True, the metallicity and age are taken from the filename. Note that
         in this case the datafile should only contain a single isochrone (of
         the metallicity and age given by the filename). The metallicity is
         assumed to be the first number in the filename and the age the second.
@@ -111,30 +115,43 @@ def add_isotable_to_lib(datafile, libfile, params, units, solar_Z=0.0152,
         be multiple in the same file) are taken from the first two columns of
         the datafile. In this case [FeH] is calculated as log10(Z/solar_Z).
         Default is True.
+
+    append_mags : list, optional
+        List of photometric filters for which data should be appended to an
+        existing grid. The names in the list must be in params. If given, the
+        grid must already exist with all parameters and the photometric data
+        are simply appended.
+        Default value is None in which case the isochrone data are added as¨
+        usual
     '''
     data = np.loadtxt(datafile)
 
-    with h5py.File(libfile) as library:
+    with h5py.File(gridfile) as Grid:
         if feh_age_filename:
             feh, age = feh_age_from_filename(datafile)
 
-            gridpath = 'alphaFe=0.0000' + '/' +\
+            gridpath = 'alphaFe=0.0000/' +\
                        'FeH=' + format(feh, '.4f') + '/' +\
                        'age=' + format(age, '.4f') + '/'
 
-            for ind, pname in enumerate(params):
-                library[gridpath + pname] = data[:, ind+2]
-                library[gridpath + pname].attrs.create('unit', np.string_(units[ind]))
-
-                ### TEMPORARY ###
-                #if pname == 'V':
-                #    V = data[:, ind+2]
-                #elif pname == 'I':
-                #    I = data[:, ind+2]
-                #    VmI = V - I
-                #    library[gridpath + 'G'] = V - 0.0354 - 0.0561*VmI - 0.1767*VmI**2 - 0.0108*VmI**3
-                #    library[gridpath + 'G'].attrs.create('unit', np.string_('mag'))
-                ### TEMPORARY ###
+            if append_mags is None:
+                for ind, pname in enumerate(params):
+                    gname = gridpath + pname
+                    Grid[gname] = data[:, ind+2]
+                    Grid[gname].attrs.create('unit', np.string_(units[ind]))
+            else:
+                for ind, pname in enumerate(params):
+                    gname = gridpath + pname
+                    if pname == 'Mini':
+                        if any(Grid[gname] - data[:, ind+2] > 0.01):
+                            raise ValueError('Masses of the isochrone being\
+                                              appended do not match the masses\
+                                              already stored in the grid')
+                    elif pname not in append_mags:
+                        continue
+                    else:
+                        Grid[gname] = data[:, ind+2]
+                        Grid[gname].attrs.create('unit', np.string_(units[ind]))
         else:
             Z_age, Z_age_counts = get_Z_age(datafile)
 
@@ -149,15 +166,25 @@ def add_isotable_to_lib(datafile, libfile, params, units, solar_Z=0.0152,
                            'age=' + format(age, '.4f') + '/'
 
                 for ind, pname in enumerate(params):
-                    library[gridpath + pname] = data_i[:, ind+2]
-                    library[gridpath + pname].attrs.create('unit', np.string_(units[ind]))
+                    gname = gridpath + pname
+                    if pname == 'Mini':
+                        if any(Grid[gname] - data[:, ind+2] > 0.01):
+                            raise ValueError('Masses of the isochrone being\
+                                              appended do not match the masses\
+                                              already stored in the grid')
+                    elif pname not in append_mags:
+                        continue
+                    else:
+                        Grid[gname] = data[:, ind+2]
+                        Grid[gname].attrs.create('unit', np.string_(units[ind]))
 
                 n += count
 
 
-def build_PARSEC(datadir, libfile, phot_filters, version):
+def build_PARSEC(datadir, gridfile, phot_filters, version,
+                 feh_age_filename=True, append_mags=False):
     '''
-    Function for building a PARSEC isochrone library file based on multiple
+    Function for building a PARSEC isochrone grid file based on multiple
     isochrone tables located in a given directory.
     The isochrone tables should be of the same format and must have the
     extension '.dat'
@@ -167,8 +194,8 @@ def build_PARSEC(datadir, libfile, phot_filters, version):
     datadir : str
         Directory of the isochrone tables.
 
-    libfile : str
-        Name of the isochrone library file (including the path). If it does not
+    gridfile : str
+        Name of the isochrone grid file (including the path). If it does not
         exist it will be created.
 
     phot_filters : list
@@ -179,9 +206,16 @@ def build_PARSEC(datadir, libfile, phot_filters, version):
         PARSEC version number. So far only '1.1' and '1.2S' are supported.
         The version number determines the names given to the parameters of the
         isochrones.
+
+    feh_age_filename : bool, optional
+        See add_isotable_to_grid().
+
+    append_mags : bool, optional
+        If True, the magnitude data (in the phot_filters) are appended to an
+        existing grid and all other parameters are not stored.
     '''
     supported_versions = ['1.1', '1.2S']
-    print("Building PARSEC isochrone library from files in directory '"
+    print("Building PARSEC isochrone grid from files in directory '"
           + datadir + "'...")
 
     if version in supported_versions:
@@ -198,15 +232,13 @@ def build_PARSEC(datadir, libfile, phot_filters, version):
     for datafile in os.listdir(datadir):
         if datafile.endswith('.dat'):
             print("Processing '" + datafile + "'...")
-            add_isotable_to_lib(os.path.join(datadir, datafile), libfile,
-                                param_names, param_units, solar_Z=solar_Z)
+            if append_mags:
+                add_isotable_to_grid(os.path.join(datadir, datafile), gridfile,
+                                     param_names, param_units, solar_Z,
+                                     feh_age_filename, append_mags=phot_filters)
+            else:
+                add_isotable_to_grid(os.path.join(datadir, datafile), gridfile,
+                                     param_names, param_units, solar_Z,
+                                     feh_age_filename)
     else:
         print("Build done!")
-
-
-datadir = '/home/christian/Downloads/PARSEC_isochrones/test_ubv/'
-build_PARSEC(datadir, datadir + 'PARSEC_lib12S.h5',
-             ['U', 'B', 'V', 'R', 'I', 'J', 'H', 'Ks'], '1.2S')
-
-#build_PARSEC(datadir, datadir + 'PARSEC_lib12S.h5',
-#             ['G', 'G_BP', 'G_RP'], '1.2S')
