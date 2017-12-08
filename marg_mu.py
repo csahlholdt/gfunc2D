@@ -1,8 +1,8 @@
 import numpy as np
-from scipy.optimize import newton
+from scipy.optimize import newton, bisect
 
 
-def mu_mode(plx_obs, plx_sigma, mu0, w):
+def mu_mode(plx_obs, plx_sigma, mu0, w, method='newton'):
     '''
     Finds the mode of P(mu), i.e. the value of mu that maximises
     P(mu) = exp(-0.5*((plx_obs-p(mu))/plx_sigma)^2 - 0.5*w*(mu-mu0))
@@ -18,12 +18,17 @@ def mu_mode(plx_obs, plx_sigma, mu0, w):
         Weighted mean of observed and prior distance modulus.
     w : float
         Sum of weights of observed and prior distance modulus.
+    method : str, optional
+        Method used to find zero-point of derivative.
+        Can be either 'newton' or 'bisect'.
+        Default is 'newton'
 
     Returns
     -------
     mu_mode : float
         Value of the distance modulus (mu) which maximises the function
         P(mu) = exp(-0.5*((plx_obs-p(mu))/plx_sigma)^2 - 0.5*w*(mu-mu0)).
+        If no value is found, None is returned instead.
     '''
     # Define some constants used to rewrite the function P(mu)
     kappa = 0.2 * np.log(10)
@@ -35,15 +40,39 @@ def mu_mode(plx_obs, plx_sigma, mu0, w):
     # Function which is zero for maximum P(mu) and its derivative
     # Note: x = exp(-kappa*(mu-mu0))
     fx = lambda x: b*np.log(x) + x*(x-p)
-    fx_prime = lambda x: b/x + 2*x - p
 
-    if p > (np.exp(1)/(np.exp(1) - 1) + b/np.exp(1)):
-        x1 = p - b/np.exp(1)
-    else:
-        x1 = (p - b + np.sqrt((p-b)**2 + 4*b)) / 2
+    if method == 'newton':
+        fx_prime = lambda x: b/x + 2*x - p
 
-    # Find x so f(x)=0 and convert from x to mu
-    x0 = newton(fx, x1, fx_prime)
+        if p > (np.exp(1)/(np.exp(1) - 1) + b/np.exp(1)):
+            x1 = p - b/np.exp(1)
+        else:
+            x1 = (p - b + np.sqrt((p-b)**2 + 4*b)) / 2
+
+        # Find x so f(x)=0
+        # If no solution is found None is returned instead.
+        with np.errstate(invalid='ignore'):
+            try:
+                x0 = newton(fx, x1, fx_prime)
+            except:
+                return None
+    elif method == 'bisect':
+        xtest = np.linspace(0.001, 10)
+        fxtest = fx(xtest)
+
+        # Find xb1, xb2 which bound f(x)=0
+        # If no zero point exists return None
+        for i in range(len(xtest)-1):
+            if fxtest[i]*fxtest[i+1] < 0:
+                xb1, xb2 = xtest[i], xtest[i+1]
+                break
+        else:
+            return None
+
+        # Find f(x)=0 by bisection
+        x0 = bisect(fx, xb1, xb2)
+
+    # Convert from x to mu
     mu_mode = -np.log(x0) / kappa + mu0
 
     return mu_mode
@@ -138,6 +167,8 @@ def marginalise_mu(plx_obs, plx_sigma,
 
     # Calculate the mode of L(mu)
     mode = mu_mode(plx_obs, plx_sigma, mu0, w0)
+    if mode is None:
+        return 0
 
     # Calculate the log-likelihood at the mode of L(mu) and the mode+-0.1 mas
     delta_mu = 0.1
