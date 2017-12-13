@@ -38,8 +38,8 @@ def gfunc2D(isogrid, fitparams, alpha, isodict=None):
     Returns
     -------
     g2D : array of float
-        2D array of the normalised G-function as a function of age (rows) and
-        metallicity (columns).
+        2D array of the non-normalized G-function as a function of age (rows)
+        and metallicity (columns).
 
     ages : array of float
         Array of ages in the rows of g2D.
