@@ -50,6 +50,7 @@ elif not os.path.exists(outputdir):
 with h5py.File(output_h5) as h5out:
     h5out.create_group('header')
     h5out.create_group('gfuncs')
+    h5out.create_group('grid')
 
     h5out['header'].create_dataset('inputfile', data=np.string_(inputfile))
     h5out['header'].create_dataset('isogrid', data=np.string_(isogrid))
@@ -97,5 +98,5 @@ for i, name in enumerate(data['name']):
 
 # Save (tau, feh)-grid
 with h5py.File(os.path.join(outputdir, 'output.h5')) as h5out:
-    h5out.create_dataset('tau_array', data=tau_array)
-    h5out.create_dataset('feh_array', data=feh_array)
+    h5out['grid'].create_dataset('tau', data=tau_array)
+    h5out['grid'].create_dataset('feh', data=feh_array)
