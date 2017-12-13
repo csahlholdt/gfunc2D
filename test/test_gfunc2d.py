@@ -1,7 +1,7 @@
 import h5py
 import numpy as np
-from gfunc2D import gfunc2D
-from gridtools import get_isochrone, get_afa_arrays, load_as_dict
+from gfunc2d.gfunc2dmain import gfunc2D
+from gfunc2d.gridtools import get_isochrone, get_afa_arrays, load_as_dict
 from scipy.signal import convolve2d
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -10,12 +10,8 @@ mpls.use('classic')
 
 import time
 
-# Ubuntu
-#isogrid = '/home/christian/Downloads/2dG-171009/YY/YY_lib.h5'
-#isogrid = '/home/christian/Downloads/PARSEC_isochrones/test/PARSEC_lib12S.h5'
-
-# OS X
-isogrid = '/Users/christian/isochrones/grids/YY_lib.h5'
+# Isochrone grid path
+isogrid = '/Users/christian/isochrones/grids/YY_grid.h5'
 
 # Define the true parameters (indicated by '0' in the variable name):
 feh0 = -0.5  # True [Fe/H]

@@ -1,5 +1,5 @@
 import numpy as np
-from gfunc2D.utilities import is_color, find_nearest
+from gfunc2d.utilities import is_color, find_nearest
 
 
 def get_isopath(alpha, feh=None, age=None):
