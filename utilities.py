@@ -18,6 +18,7 @@ def is_color(color_str):
     result : bool
         True if the input string is a color index.
     '''
+
     regex_match = re.fullmatch('([a-zA-Z0-9]+)-([a-zA-Z0-9]+)', color_str)
 
     if regex_match is None:
@@ -35,15 +36,17 @@ def find_nearest(array, value):
     Parameters
     ----------
     array : array
-        An array of values to search
+        An array of values to search.
+
     value : float
-        The value for which the nearest element should be returned
+        The value for which the nearest element should be returned.
 
     Returns
     -------
     nearest : float
         The array element which is closest to 'value'
     '''
+
     idx = np.argmin((np.abs(array-value)))
     nearest = array[idx]
 

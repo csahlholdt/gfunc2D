@@ -21,11 +21,14 @@ def gfunc2D(isogrid, fitparams, alpha, isodict=None):
     ----------
     isogrid : str
         Name of the isochrone hdf5 grid (including the full path).
+
     fitparams : dict
         Dictionary consisting of the parameters to be fitted in the format
         fitparams = {'param_name': (value, uncertainty), ...}.
+
     alpha : float
         Value of [alpha/Fe]. Must exist in the grid.
+
     isodict : dict, optional
         The isochrone hdf5 grid loaded as a dictionary using
         gridtools.load_as_dict(). Supplying this dictionary is optional but it
@@ -37,11 +40,14 @@ def gfunc2D(isogrid, fitparams, alpha, isodict=None):
     g2D : array of float
         2D array of the normalised G-function as a function of age (rows) and
         metallicity (columns).
+
     ages : array of float
         Array of ages in the rows of g2D.
+
     fehs : array of float
         Array of metallicities in the columns of g2D.
     '''
+
     # Exponent for power-law IMF
     beta = 2.7
 

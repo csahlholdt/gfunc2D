@@ -19,6 +19,7 @@ def get_param_names(datafile):
     param_names : list
         Names of the parameters in the isochrone table.
     '''
+
     with open(datafile, 'r') as data:
         prev_line = ''
         for line in data:
@@ -49,6 +50,7 @@ def Z_age_from_data(datafile):
     counts : list
         The number of models with each pair of Z and age.
     '''
+
     Z_age, counts = np.unique(np.loadtxt(datafile, usecols=(0,1)), axis=0,
                               return_counts=True)
     return Z_age, counts
@@ -124,6 +126,7 @@ def add_isotable_to_grid(datafile, gridfile, params, units, solar_Z=0.0152,
         Default value is None in which case the isochrone data are added as¨
         usual
     '''
+
     data = np.loadtxt(datafile)
 
     with h5py.File(gridfile) as Grid:
@@ -214,6 +217,7 @@ def build_PARSEC(datadir, gridfile, phot_filters, version,
         If True, the magnitude data (in the phot_filters) are appended to an
         existing grid and all other parameters are not stored.
     '''
+
     supported_versions = ['1.1', '1.2S']
     print("Building PARSEC isochrone grid from files in directory '"
           + datadir + "'...")

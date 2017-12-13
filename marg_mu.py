@@ -12,12 +12,16 @@ def mu_mode(plx_obs, plx_sigma, mu0, w, method='newton'):
     ----------
     plx_obs : float
         Observed parallax in milliarcseconds.
+
     plx_sigma : float
         Uncertainty on observed parallax.
+
     mu0 : float
         Weighted mean of observed and prior distance modulus.
+
     w : float
         Sum of weights of observed and prior distance modulus.
+
     method : str, optional
         Method used to find zero-point of derivative.
         Can be either 'newton' or 'bisect'.
@@ -30,6 +34,7 @@ def mu_mode(plx_obs, plx_sigma, mu0, w, method='newton'):
         P(mu) = exp(-0.5*((plx_obs-p(mu))/plx_sigma)^2 - 0.5*w*(mu-mu0)).
         If no value is found, None is returned instead.
     '''
+
     # Define some constants used to rewrite the function P(mu)
     kappa = 0.2 * np.log(10)
     plx0 = 100 * np.exp(-kappa*mu0)
@@ -90,18 +95,25 @@ def mu_log_lik(mu, plx_obs, plx_sigma,
     ----------
     mu : array of float
         Distance moduli for which to calculate the log-likelihood.
+
     plx_obs : float
         Observed parallax in milliarcseconds.
+
     plx_sigma : float
         Uncertainty on observed parallax.
+
     mag_obs : float
         Observed apparent magnitude.
+
     mag_sigma : float
         Uncertainty on observed apparent magnitude.
+
     mag_abs : float
         Absolute magnitude from the isochrone (same passband as mag_obs).
+
     mu_prior : float
         Prior mean distance modulus.
+
     mu_prior_w : float
         Statistical weight of mu_prior (= sigma_mu_priot^(-2)).
 
@@ -110,6 +122,7 @@ def mu_log_lik(mu, plx_obs, plx_sigma,
     log_lik : array of float
         Array of log-likelihood for each value of mu in the input array.
     '''
+
     # Theoretical parallaxes for the different mu values
     plx = 10**(2 - 0.2 * mu)
 
@@ -139,16 +152,22 @@ def marginalise_mu(plx_obs, plx_sigma,
     ----------
     plx_obs : float
         Observed parallax in milliarcseconds.
+
     plx_sigma : float
         Uncertainty on observed parallax.
+
     mag_obs : float
         Observed apparent magnitude.
+
     mag_sigma : float
         Uncertainty on observed apparent magnitude.
+
     mag_abs : float
         Absolute magnitude from the isochrone (same passband as mag_obs).
+
     mu_prior : float
         Prior mean distance modulus.
+
     mu_prior_w : float
         Statistical weight of mu_prior (= sigma_mu_priot^(-2)).
 

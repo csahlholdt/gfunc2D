@@ -10,17 +10,20 @@ def get_isopath(alpha, feh=None, age=None):
     Parameters
     ----------
     alpha : float
-        Value of [alpha/Fe]
+        Value of [alpha/Fe].
+
     feh : float, optional
-        Value of [Fe/H]
+        Value of [Fe/H].
+
     age : float, optional
-        Value of the age
+        Value of the age.
 
     Returns
     -------
     path : str
         The grid path to the isochrone with the input parameters.
     '''
+
     path = 'alphaFe=' + format(alpha, '.4f') + '/'
     if feh is not None:
         path += 'FeH=' + format(feh, '.4f') + '/'
@@ -49,11 +52,14 @@ def get_afa_arrays(gridfile):
     alpha_array : array of float
         Array of all values of [alpha/Fe] available in the grid in ascending
         order.
+
     feh_array : array of float
         Array of all values of [Fe/H] available in the grid in ascending order.
+
     age_array : array of float
         Array of all values of age available in the grid in ascending order.
     '''
+
     # Take first alpha value in the grid and the first [Fe/H] value for that
     # alpha
     alpha = list(gridfile)[0]
@@ -89,12 +95,15 @@ def get_isochrone(gridfile, alpha, feh, age):
     ----------
     gridfile : h5py.File object
         Isochrone hdf5.File object.
+
     alpha : float
-        Value of [alpha/Fe]
+        Value of [alpha/Fe].
+
     feh : float, optional
-        Value of [Fe/H]
+        Value of [Fe/H].
+
     age : float, optional
-        Value of the age
+        Value of the age.
 
     Returns
     -------
@@ -102,6 +111,7 @@ def get_isochrone(gridfile, alpha, feh, age):
         Dictionary holding the data of the isochrone with parameter names as
         keys and numpy arrays as values.
     '''
+
     isopath = get_isopath(alpha, feh, age)
 
     # If the path is not found in the grid
@@ -132,6 +142,7 @@ def get_gridparams(gridfile, return_units=False):
     ----------
     gridfile : h5py.File object
         Isochrone hdf5.File object.
+
     return_units : bool, optional
         If true, return a list of units for the parameters.
         Default is False.
@@ -140,10 +151,12 @@ def get_gridparams(gridfile, return_units=False):
     -------
     params : list of str
         Names of the parameters available for each isochrone in the grid.
+
     units : list of str
         Units of the parameters available for each isochrone in the grid.
         If return_units is False, None is returned instead of the list.
     '''
+
     # Function to be passed to the gridfile.visit() method
     # It returns the group if 'age=' is in the name.
     fun = lambda x: x if 'age=' in x else None
@@ -182,6 +195,7 @@ def prepare_fitparams(gridfile, fitparams):
     ----------
     gridfile : h5py.File object
         Isochrone hdf5.File object.
+
     fitparams : dict
         Dictionary with inputparameters for the isochrone fit.
         See gfunc_2D() for a description of the format.
@@ -191,6 +205,7 @@ def prepare_fitparams(gridfile, fitparams):
     fitparams_attr : dict
         Updated fitparams dictionary with metadata (attributes) for each
         parameter.
+
     mag : str
         The apparent magnitude (name of the filter) given in fitparams.
         If no apparent magnitude is fitted, None is returned instead.
@@ -245,14 +260,17 @@ def load_as_dict(gridfile, alpha_lims=None, feh_lims=None, age_lims=None):
     ----------
     gridfile : h5py.File object
         Isochrone hdf5.File object.
+
     alpha_lims : seq of float, optional
         Lower and upper limits (closed interval) on [alpha/Fe].
         If no limits are given the default is to take all values available in
         the grid.
+
     feh_lims : seq of float, optional
         Lower and upper limits (closed interval) on [Fe/H].
         If no limits are given the default is to take all values available in
         the grid.
+
     ages : seq of float, optional
         Lower and upper limit (closed interval) on the age.
         If no limits are given the default is to take all values available in
@@ -265,6 +283,7 @@ def load_as_dict(gridfile, alpha_lims=None, feh_lims=None, age_lims=None):
         isochrones (as returned by get_isopath()) and the values are dictionaries
         like the ones returned by get_isochrone().
     '''
+
     # Get arrays of alphas, fehs, ages
     alphas, fehs, ages = get_afa_arrays(gridfile)
     # Pick out the desired parameter ranges if limits are given
