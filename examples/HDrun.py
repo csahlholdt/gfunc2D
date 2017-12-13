@@ -3,9 +3,9 @@ import sys
 import h5py
 import numpy as np
 from datetime import datetime
-from gfunc2D.gfunc2D import gfunc2D
-from gfunc2D.gridtools import load_as_dict
-from gfunc2D.gplot import gplot_loglik, gplot_contour
+from gfunc2d.gfunc2dmain import gfunc2D
+from gfunc2d.gridtools import load_as_dict
+from gfunc2d.gplot import gplot_loglik, gplot_contour
 
 # Define input file, output directory, and path to an isochrone grid
 inputfile = '/Users/christian/code/gfunc2D/examples/HDinput.txt'
