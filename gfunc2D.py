@@ -14,8 +14,9 @@ from gfunc2D.marg_mu import marginalise_mu
 
 def gfunc2D(isogrid, fitparams, alpha, isodict=None):
     '''
-    Returns a 2D array of the normalised G-function as a function of age and
-    metallicity, along with the corresponding arrays of ages and metallicities.
+    Calculates, for a single star, a 2D array of the G-function as a function
+    of age and metallicity, along with the corresponding arrays of ages and
+    metallicities.
 
     Parameters
     ----------
@@ -38,8 +39,8 @@ def gfunc2D(isogrid, fitparams, alpha, isodict=None):
     Returns
     -------
     g2D : array of float
-        2D array of the normalised G-function as a function of age (rows) and
-        metallicity (columns).
+        2D array of the G-function as a function of age (rows) and metallicity
+        (columns).
 
     ages : array of float
         Array of ages in the rows of g2D.
