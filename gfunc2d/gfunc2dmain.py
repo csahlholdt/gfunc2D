@@ -149,13 +149,9 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None):
                     plx_obs, plx_unc = fitparams['plx'][:2]
                     for i_mass in range(len(chi2)):
                         iso_mag = iso_mags[i_mass]
-                        lik_int_mu[i_mass] = marginalise_mu(plx_obs,
-                                                            plx_unc,
-                                                            obs_mag,
-                                                            obs_unc,
-                                                            iso_mag,
-                                                            mu_prior,
-                                                            mu_prior_w)
+                        lik_int_mu[i_mass] = margm(plx_obs, plx_unc, obs_mag,
+                                                   obs_unc, iso_mag, mu_prior,
+                                                   mu_prior_w)
 
                     # The marginalisation over mass is carried out to give
                     # the value of the G-function for the current
