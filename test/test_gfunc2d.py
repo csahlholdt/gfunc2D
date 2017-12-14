@@ -1,6 +1,6 @@
 import h5py
 import numpy as np
-from gfunc2d.gfunc2dmain import gfunc2D
+from gfunc2d.gfunc2dmain import gfunc2d
 from gfunc2d.gridtools import get_isochrone, get_afa_arrays, load_as_dict
 from scipy.signal import convolve2d
 import matplotlib.pyplot as plt
