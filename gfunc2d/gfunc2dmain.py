@@ -1,22 +1,23 @@
-"""
-Python version of the MATLAB script gFunc2D.m
+import os
+import sys
+import h5py
+import numpy as np
+from datetime import datetime
+import gfunc2d.gridtools as gt
+from gfunc2d.marg_mu import marginalise_mu as margm
+from gfunc2d.gplot import gplot_loglik, gplot_contour
+
+
+def gfunc2d(isogrid, fitparams, alpha, isodict=None):
+    '''
+    Python version of the MATLAB script gFunc2D.m
     C Sahlholdt, 2017 Oct 27 (translated to Python)
     L Howes, Lund Observatory, 2016 Sep 15 (adapted to YY and plx)
     L Lindegren, 2016 Oct 4 (returning 2D G function)
         - based on gFunc.m by L. Lindegren.
-"""
 
-import numpy as np
-import h5py
-import gfunc2d.gridtools as gridtools
-from gfunc2d.marg_mu import marginalise_mu
-
-
-def gfunc2D(isogrid, fitparams, alpha, isodict=None):
-    '''
     Calculates, for a single star, a 2D array of the G-function as a function
-    of age and metallicity, along with the corresponding arrays of ages and
-    metallicities.
+    of age and metallicity.
 
     Parameters
     ----------
@@ -34,7 +35,8 @@ def gfunc2D(isogrid, fitparams, alpha, isodict=None):
         The isochrone hdf5 grid loaded as a dictionary using
         gridtools.load_as_dict(). Supplying this dictionary is optional but it
         speeds up the code significantly since the data has already been loaded
-        into the memory.
+        into the memory (very useful when looping this function over several
+        stars).
 
     Returns
     -------
@@ -59,7 +61,7 @@ def gfunc2D(isogrid, fitparams, alpha, isodict=None):
 
     with h5py.File(isogrid, 'r') as gridfile:
         # Get arrays of alpha, metallicities, and ages
-        alphas, fehs, ages = gridtools.get_afa_arrays(gridfile)
+        alphas, fehs, ages = gt.get_afa_arrays(gridfile)
 
         # Check that the chosen [alpha/Fe] is available in the grid
         if alpha not in alphas:
@@ -70,12 +72,12 @@ def gfunc2D(isogrid, fitparams, alpha, isodict=None):
 
         # Check that the chosen fitparams are accommodated by the grid
         # and add metadata (attribute) used in the fitting proccess.
-        fitparams, app_mag = gridtools.prepare_fitparams(gridfile, fitparams)
+        fitparams, app_mag = gt.prepare_fitparams(gridfile, fitparams)
 
         # The hdf5 grid is loaded into a python dictionary if the dictionary
         # has not been loaded (and passed to this function) in advance.
         if isodict is None:
-            isodict = gridtools.load_as_dict(gridfile, (alpha, alpha))
+            isodict = gt.load_as_dict(gridfile, (alpha, alpha))
 
     # Initialize g-function
     g2D = np.zeros((len(ages), len(fehs)))
@@ -86,7 +88,7 @@ def gfunc2D(isogrid, fitparams, alpha, isodict=None):
 
             # Get the hdf5 path to the desired isochrone and pick out the
             # isochrone
-            isopath = gridtools.get_isopath(alpha, feh, age)
+            isopath = gt.get_isopath(alpha, feh, age)
             iso_i = isodict[isopath]
 
             # Get mass array and calculate the change in mass for each
@@ -166,3 +168,81 @@ def gfunc2D(isogrid, fitparams, alpha, isodict=None):
             g2D[i_age, i_feh] += g2D_i
 
     return g2D, ages, fehs
+
+
+def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
+                alpha=0.0, make_plots=True):
+    '''
+    docstring
+    '''
+
+    # Get the date and time
+    time = datetime.now().isoformat(timespec='minutes')
+
+    # Check if outputfile already exists
+    output_h5 = os.path.join(outputdir, 'output.h5')
+    if os.path.exists(output_h5):
+        raise IOError(output_h5 + ' already exists. Move/remove it and try again.')
+
+    # Create output directories if they do not exist
+    if make_plots and not os.path.exists(os.path.join(outputdir, 'figures')):
+        os.makedirs(os.path.join(outputdir, 'figures'))
+        print('Created output directory: ' + outputdir)
+    elif not os.path.exists(outputdir):
+        os.makedirs(os.path.join(outputdir, 'figures'))
+        print('Created output directory: ' + outputdir)
+
+    # Prepare output hdf5 groups and fill in header
+    with h5py.File(output_h5) as h5out:
+        h5out.create_group('header')
+        h5out.create_group('gfuncs')
+        h5out.create_group('grid')
+
+        h5out['header'].create_dataset('inputfile', data=np.string_(inputfile))
+        h5out['header'].create_dataset('isogrid', data=np.string_(isogrid))
+        h5out['header'].create_dataset('fitnames', data=np.string_(fitnames))
+        h5out['header'].create_dataset('datetime', data=np.string_(time))
+        h5out['header'].create_dataset('alpha', data=alpha)
+
+    # Load stellar data
+    data = np.genfromtxt(inputfile, dtype=None, names=inputnames)
+    # Get indices of inputnames which should be fitted
+    fit_inds = [inputnames.index(x) for x in fitnames]
+
+    # Load isochrones into memory in the form of a python dictionary
+    print('\nLoading isochrones into memory...', end=''); sys.stdout.flush()
+    with h5py.File(isogrid, 'r') as gridfile:
+        isodict = gt.load_as_dict(gridfile, alpha_lims=(alpha-0.01, alpha+0.01))
+    print(' done!\n')
+
+    # Loop over stars in the input file
+    for i, name in enumerate(data['name']):
+        # Set stellar name and data
+        name = name.decode('ASCII')
+        data_i = data[i]
+
+        # Make fitparams dictionary
+        fitparams = {inputnames[k]: (data_i[k], data_i[k+1]) for k in fit_inds}
+
+        # Compute G-function
+        print('Processing ' + name + '...', end=''); sys.stdout.flush()
+        g, tau_array, feh_array = gfunc2d(isogrid, fitparams, alpha, isodict=isodict)
+
+        # Save G-function
+        with h5py.File(output_h5) as h5out:
+            h5out['gfuncs'].create_dataset(name, data=g)
+
+        # Save plots of the G-function if make_plots
+        if make_plots:
+            loglik_plot = os.path.join(outputdir, 'figures', name + '_loglik.pdf')
+            contour_plot = os.path.join(outputdir, 'figures', name + '_contour.pdf')
+            gplot_loglik(g, tau_array, feh_array, savename=loglik_plot, show=False)
+            gplot_contour(g, tau_array, feh_array, savename=contour_plot, show=False)
+
+        # Print progress
+        print(' ' + str(round((i+1) / len(data) * 100)) + '%')
+
+    # Save (tau, feh)-grid
+    with h5py.File(os.path.join(outputdir, 'output.h5')) as h5out:
+        h5out['grid'].create_dataset('tau', data=tau_array)
+        h5out['grid'].create_dataset('feh', data=feh_array)
