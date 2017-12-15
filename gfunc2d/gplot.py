@@ -4,7 +4,7 @@ import matplotlib.style as mpls
 mpls.use('classic')
 
 
-def gplot_loglik(g, tau_array, feh_array, smooth=True, savename=None, show=True):
+def loglik_plot(ax, g, tau_array, feh_array, smooth=True):
     # Add small number to allow logarithmic scale
     eps = 1e-20
     A = g.T + eps
@@ -19,33 +19,32 @@ def gplot_loglik(g, tau_array, feh_array, smooth=True, savename=None, show=True)
     
     C /= np.amax(C)
 
-    fig, ax = plt.subplots()
-
     dtau = tau_array[1] - tau_array[0]
     dfeh = feh_array[1] - feh_array[0]
-    plot_lims = (tau_array[0]-dtau, tau_array[-1]+dtau, feh_array[-1]+dfeh, feh_array[0]-dfeh)
-    cax = ax.imshow(np.log10(C), extent=plot_lims, aspect='auto', interpolation='none')
-    cbar = fig.colorbar(cax)
+    plot_lims = (tau_array[0]-dtau, tau_array[-1]+dtau,
+                 feh_array[0]-dfeh, feh_array[-1]+dfeh)
+    cax = ax.imshow(np.log10(C), origin='lower', extent=plot_lims,
+                    aspect='auto', interpolation='none')
+    cbar = plt.gcf().colorbar(cax)
     cbar.set_label('log10(G-function)')
 
     ax.set_xlabel('Age [Gyr]')
     ax.set_ylabel('[Fe/H]')
-    ax.invert_yaxis()
     ax.grid()
 
-    ax.set_xlim(tau_array[0]-dtau, tau_array[-1]+dtau)
-    ax.set_ylim(feh_array[0]-dfeh, feh_array[-1]+dfeh)
+    ax.set_xlim(plot_lims[:2])
+    ax.set_ylim(plot_lims[2:])
 
-    if savename is not None:
-        fig.savefig(savename)
 
-    if show:
-        plt.show()
+def loglik_save(g, tau_array, feh_array, savename, smooth=True):
+    fig, ax = plt.subplots()
+    loglik_plot(ax, g, tau_array, feh_array, smooth)
 
+    fig.savefig(savename)
     plt.close(fig)
 
 
-def gplot_contour(g, tau_array, feh_array, smooth=True, savename=None, show=True):
+def contour_plot(g, tau_array, feh_array, smooth=True, savename=None, show=True):
     # Add small number to allow logarithmic scale
     eps = 1e-20
     A = g.T + eps
