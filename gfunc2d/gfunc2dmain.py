@@ -5,7 +5,7 @@ import numpy as np
 from datetime import datetime
 import gfunc2d.gridtools as gt
 from gfunc2d.marg_mu import marginalise_mu as margm
-from gfunc2d.gplot import gplot_loglik, gplot_contour
+from gfunc2d.gplot import loglik_save, contour_plot
 
 
 def gfunc2d(isogrid, fitparams, alpha, isodict=None):
@@ -230,10 +230,10 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
 
         # Save plots of the G-function if make_plots
         if make_plots:
-            loglik_plot = os.path.join(outputdir, 'figures', name + '_loglik.pdf')
-            contour_plot = os.path.join(outputdir, 'figures', name + '_contour.pdf')
-            gplot_loglik(g, tau_array, feh_array, savename=loglik_plot, show=False)
-            gplot_contour(g, tau_array, feh_array, savename=contour_plot, show=False)
+            loglik_name = os.path.join(outputdir, 'figures', name + '_loglik.pdf')
+            contour_name = os.path.join(outputdir, 'figures', name + '_contour.pdf')
+            loglik_save(g, tau_array, feh_array, loglik_name)
+            contour_plot(g, tau_array, feh_array, savename=contour_name, show=False)
 
         # Print progress
         print(' ' + str(round((i+1) / len(data) * 100)) + '%')
