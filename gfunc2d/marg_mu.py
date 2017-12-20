@@ -5,7 +5,7 @@ from scipy.optimize import newton, bisect
 def mu_mode(plx_obs, plx_sigma, mu0, w, method='newton'):
     '''
     Finds the mode of P(mu), i.e. the value of mu that maximises
-    P(mu) = exp(-0.5*((plx_obs-p(mu))/plx_sigma)^2 - 0.5*w*(mu-mu0))
+    P(mu) = exp(-0.5*((plx_obs-p(mu))/plx_sigma)^2 - 0.5*w*(mu-mu0)^2)
     where p(mu) = (100 mas)*10^(-0.2*mu).
 
     Parameters
