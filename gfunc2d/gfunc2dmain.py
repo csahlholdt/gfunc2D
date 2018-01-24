@@ -5,7 +5,7 @@ import numpy as np
 from datetime import datetime
 import gfunc2d.gridtools as gt
 from gfunc2d.marg_mu import marginalise_mu as margm
-from gfunc2d.gplot import loglik_save, contour_plot
+from gfunc2d.gplot import loglik_save, contour_save, hr_save
 
 
 def gfunc2d(isogrid, fitparams, alpha, isodict=None):
@@ -167,7 +167,7 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None):
 
 
 def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
-                alpha=0.0, make_plots=True):
+                alpha=0.0, make_gplots=True, make_hrplots=False):
     '''
     docstring
     '''
@@ -181,12 +181,14 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
         raise IOError(output_h5 + ' already exists. Move/remove it and try again.')
 
     # Create output directories if they do not exist
-    if make_plots and not os.path.exists(os.path.join(outputdir, 'figures')):
-        os.makedirs(os.path.join(outputdir, 'figures'))
+    if not os.path.exists(outputdir):
+        os.makedirs(outputdir)
         print('Created output directory: ' + outputdir)
-    elif not os.path.exists(outputdir):
-        os.makedirs(os.path.join(outputdir, 'figures'))
-        print('Created output directory: ' + outputdir)
+    if not os.path.exists(os.path.join(outputdir, 'figures')):
+        if make_gplots or (make_hrplots is not False):
+            os.makedirs(os.path.join(outputdir, 'figures'))
+            print('Created figure directory: ' +\
+                  os.path.join(outputdir, 'figures'))
 
     # Prepare output hdf5 groups and fill in header
     with h5py.File(output_h5) as h5out:
@@ -206,9 +208,11 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
     fit_inds = [inputnames.index(x) for x in fitnames]
 
     # Load isochrones into memory in the form of a python dictionary
+    # Also get available parameters in the grid and their units
     print('\nLoading isochrones into memory...', end=''); sys.stdout.flush()
     with h5py.File(isogrid, 'r') as gridfile:
         isodict = gt.load_as_dict(gridfile, alpha_lims=(alpha-0.01, alpha+0.01))
+        gridparams, gridunits = gt.get_gridparams(gridfile, return_units=True)
     print(' done!\n')
 
     # Loop over stars in the input file
@@ -229,11 +233,30 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
             h5out['gfuncs'].create_dataset(name, data=g)
 
         # Save plots of the G-function if make_plots
-        if make_plots:
+        if make_gplots:
             loglik_name = os.path.join(outputdir, 'figures', name + '_loglik.pdf')
             contour_name = os.path.join(outputdir, 'figures', name + '_contour.pdf')
             loglik_save(g, tau_array, feh_array, loglik_name)
-            contour_plot(g, tau_array, feh_array, savename=contour_name, show=False)
+            contour_save(g, tau_array, feh_array, contour_name)
+
+        if make_hrplots is not False:
+            hr_axes = make_hrplots
+            try:
+                hrx_data_index = inputnames.index(make_hrplots[0])
+                hry_data_index = inputnames.index(make_hrplots[1])
+                hrx_grid_index = gridparams.index(make_hrplots[0])
+                hry_grid_index = gridparams.index(make_hrplots[1])
+            except:
+                raise ValueError('Both of ' + str(make_hrplots) +\
+                                 ' must be in inputnames and in gridparams!')
+            hr_vals = (data_i[hrx_data_index], data_i[hry_data_index])
+            hr_units = (gridunits[hrx_grid_index], gridunits[hry_grid_index])
+            hr_name = os.path.join(outputdir, 'figures', name + '_hr.pdf')
+            if hr_units[1] == 'mag':
+                plx = data_i[inputnames.index('plx')]
+                hr_save(isodict, hr_axes, hr_vals, hr_units, hr_name, par=plx)
+            else:
+                hr_save(isodict, hr_axes, hr_vals, hr_units, hr_name)
 
         # Print progress
         print(' ' + str(round((i+1) / len(data) * 100)) + '%')
