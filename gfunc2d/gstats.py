@@ -7,6 +7,7 @@ Created on Wed Jan 24 14:19:27 2018
 """
 
 import h5py
+import pandas as pd
 import numpy as np
 from scipy.stats import norm
 from scipy.optimize import newton
@@ -81,6 +82,31 @@ def gfunc_age_conf(g_age, age_grid, conf_level=0.68):
     return age_conf
 
 
+def print_age_stats(output_h5):
+    with h5py.File(test_output) as out:
+        ages = out['grid/tau'][:]
+        gf_group = out['gfuncs']
+        star_id = np.array(gf_group)
+        n_star = len(star_id)
+        age_arr = np.zeros((n_star, 5))
+
+        for i, star in enumerate(star_id):
+            g = gf_group[star][:]
+            g = smooth_gfunc2d(g)
+            g = norm_gfunc(g)
+            g_age = gfunc_age(g)
+            age_arr_i = age_arr[i]
+
+            age_arr_i[2] = gfunc_age_mode(g_age, ages)
+            age_arr_i[1:4:2] = gfunc_age_conf(g_age, ages)
+            age_arr_i[0:5:4] = gfunc_age_conf(g_age, ages, conf_level=0.90)
+
+        pd_arr = pd.DataFrame(age_arr, index=star_id)
+        pd_arr.to_csv('/Users/christian/teest.txt', sep='\t',
+                     index_label='#ID number', float_format='%2.2f',
+                     header=['5', '16', 'Mode', '84', '95'], na_rep='nan')
+
+
 g = smooth_gfunc2d(g)
 g = norm_gfunc(g)
 
@@ -96,5 +122,5 @@ x2 = conf[1] if conf[1] is not None else ages[-1]
 ax.fill_betweenx(y=[0, 1], x1=x1, x2=x2, alpha=0.2)
 plt.show()
 
-
+#print_age_stats(test_output)
 
