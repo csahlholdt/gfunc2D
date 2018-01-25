@@ -15,8 +15,8 @@ import matplotlib.pyplot as plt
 
 ids = ['HD2151', 'HD22879', 'HD10700', 'HD102870', 'HD124897', 'HD122563',
        'HD85503', 'HD62509', 'HD113226', 'HD107328', 'HD103095', 'HD201092']
-#test_output = '/Users/christian/stellar_ages/Gaia_benchmark/output_PARSEC_Vmag/output.h5'
-test_output = '/Users/christian/stellar_ages/Gaia_benchmark/test_Mini/output.h5'
+test_output = '/Users/christian/stellar_ages/Gaia_benchmark/output_PARSEC_Vmag/output.h5'
+#test_output = '/Users/christian/stellar_ages/Gaia_benchmark/test_Mini/output.h5'
 test_id = ids[0]
 with h5py.File(test_output) as out:
     g = out['gfuncs/' + test_id][:]
@@ -82,7 +82,7 @@ def gfunc_age_conf(g_age, age_grid, conf_level=0.68):
     return age_conf
 
 
-def print_age_stats(output_h5):
+def print_age_stats(output_h5, filename):
     with h5py.File(test_output) as out:
         ages = out['grid/tau'][:]
         gf_group = out['gfuncs']
@@ -102,9 +102,9 @@ def print_age_stats(output_h5):
             age_arr_i[0:5:4] = gfunc_age_conf(g_age, ages, conf_level=0.90)
 
         pd_arr = pd.DataFrame(age_arr, index=star_id)
-        pd_arr.to_csv('/Users/christian/teest.txt', sep='\t',
-                     index_label='#ID number', float_format='%2.2f',
-                     header=['5', '16', 'Mode', '84', '95'], na_rep='nan')
+        pd_arr.to_csv(filename, sep='\t', index_label='#ID number',
+                      header=['5', '16', 'Mode', '84', '95'],
+                      float_format='%2.2f', na_rep='nan')
 
 
 g = smooth_gfunc2d(g)
@@ -122,5 +122,5 @@ x2 = conf[1] if conf[1] is not None else ages[-1]
 ax.fill_betweenx(y=[0, 1], x1=x1, x2=x2, alpha=0.2)
 plt.show()
 
-#print_age_stats(test_output)
+print_age_stats(test_output, '/Users/christian/teststs.txt')
 
