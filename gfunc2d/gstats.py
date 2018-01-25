@@ -14,8 +14,8 @@ import matplotlib.pyplot as plt
 
 ids = ['HD2151', 'HD22879', 'HD10700', 'HD102870', 'HD124897', 'HD122563',
        'HD85503', 'HD62509', 'HD113226', 'HD107328', 'HD103095', 'HD201092']
-test_output = '/Users/christian/stellar_ages/Gaia_benchmark/test/output.h5'
-#test_output = '/Users/christian/stellar_ages/Gaia_benchmark/benchmark_output_logg_PARSEC/output.h5'
+#test_output = '/Users/christian/stellar_ages/Gaia_benchmark/output_PARSEC_Vmag/output.h5'
+test_output = '/Users/christian/stellar_ages/Gaia_benchmark/test_Mini/output.h5'
 test_id = ids[0]
 with h5py.File(test_output) as out:
     g = out['gfuncs/' + test_id][:]
@@ -70,7 +70,13 @@ def gfunc_age_conf(g_age, age_grid, conf_level=0.68):
     glim = conf_glim(conf_level)
 
     ages_lim = age_grid[g_age > glim]
-    age_conf = (ages_lim[0], ages_lim[-1])
+    age_low, age_high = ages_lim[0], ages_lim[-1]
+
+    if age_low == age_grid[0]:
+        age_low = None
+    if age_high == age_grid[-1]:
+        age_high = None
+    age_conf = (age_low, age_high)
 
     return age_conf
 
@@ -85,7 +91,9 @@ print(age, conf)
 fig, ax = plt.subplots()
 ax.plot(ages, g_age)
 ax.axvline(x=age, ls='--')
-ax.fill_betweenx(y=[0, 1], x1=conf[0], x2=conf[1], alpha=0.2)
+x1 = conf[0] if conf[0] is not None else ages[0]
+x2 = conf[1] if conf[1] is not None else ages[-1]
+ax.fill_betweenx(y=[0, 1], x1=x1, x2=x2, alpha=0.2)
 plt.show()
 
 
