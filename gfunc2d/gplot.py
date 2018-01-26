@@ -56,10 +56,13 @@ def contour_plot(axes, g, tau_array, feh_array, smooth=True):
     ax0, ax1, ax2 = axes
 
     percent = [70, 80, 90, 95, 99]
-    for p in percent:
-        percentiles = np.percentile(np.log10(A[A > 1e-15]), percent)
-    ax0.contour(tau_array, feh_array, np.log10(A), percentiles, colors='k',
-                linestyles='solid')
+    percentiles = np.percentile(np.log10(A[A > 1e-15]), percent)
+    try:
+        ax0.contour(tau_array, feh_array, np.log10(A), percentiles, colors='k',
+                    linestyles='solid')
+    except ValueError:
+        ax0.contour(tau_array, feh_array, np.log10(A), [percentiles[-1]],
+                    colors='k', linestyles='solid')
 
     ax0.set_xlabel('Age [Gyr]')
     ax0.set_ylabel('[Fe/H]')
@@ -113,8 +116,13 @@ def hr_plot(ax, isodict, hr_axes, hr_vals, hr_units, par=None,
 
     if xax == 'logT':
         xval_plot = np.log10(xval)
+    else:
+        xval_plot = xval
+
     if yunit == 'mag':
         yval_plot = -5*np.log10(par/100)
+    else:
+        yval_plot = yval
 
     isos = []
     for feh in fehs:
