@@ -6,6 +6,7 @@ from datetime import datetime
 import gfunc2d.gridtools as gt
 from gfunc2d.marg_mu import marginalise_mu as margm
 from gfunc2d.gplot import loglik_save, contour_save, hr_save
+from gfunc2d.gstats import print_age_stats
 
 
 def gfunc2d(isogrid, fitparams, alpha, isodict=None):
@@ -167,7 +168,8 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None):
 
 
 def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
-                alpha=0.0, make_gplots=True, make_hrplots=False):
+                alpha=0.0, make_gplots=True, make_hrplots=False,
+                output_ages=True):
     '''
     docstring
     '''
@@ -226,7 +228,8 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
 
         # Compute G-function
         print('Processing ' + name + '...', end=''); sys.stdout.flush()
-        g, tau_array, feh_array = gfunc2d(isogrid, fitparams, alpha, isodict=isodict)
+        g, tau_array, feh_array = gfunc2d(isogrid, fitparams,
+                                          alpha, isodict=isodict)
 
         # Save G-function
         with h5py.File(output_h5) as h5out:
@@ -262,6 +265,11 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
         print(' ' + str(round((i+1) / len(data) * 100)) + '%')
 
     # Save (tau, feh)-grid
-    with h5py.File(os.path.join(outputdir, 'output.h5')) as h5out:
+    with h5py.File(output_h5) as h5out:
         h5out['grid'].create_dataset('tau', data=tau_array)
         h5out['grid'].create_dataset('feh', data=feh_array)
+
+    # Optionally, write ages to text file
+    if output_ages:
+        output_ages_file = os.path.join(outputdir, 'ages.txt')
+        print_age_stats(output_h5, output_ages_file)
