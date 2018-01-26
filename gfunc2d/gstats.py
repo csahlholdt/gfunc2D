@@ -32,6 +32,7 @@ def smooth_gfunc2d(g):
     
     return g2
 
+
 def norm_gfunc(g, method='maxone'):
     if method == 'maxone':
         gnorm = g / np.amax(g)
@@ -87,6 +88,7 @@ def print_age_stats(output_h5, filename):
         ages = out['grid/tau'][:]
         gf_group = out['gfuncs']
         star_id = np.array(gf_group)
+
         n_star = len(star_id)
         age_arr = np.zeros((n_star, 5))
 
@@ -101,6 +103,12 @@ def print_age_stats(output_h5, filename):
             age_arr_i[1:4:2] = gfunc_age_conf(g_age, ages)
             age_arr_i[0:5:4] = gfunc_age_conf(g_age, ages, conf_level=0.90)
 
+        # Pad identifier strings (for prettier output)
+        id_len = max([len(x) for x in star_id])
+        for i, sid in enumerate(star_id):
+            star_id[i] = sid + (id_len - len(sid))*' '
+
+        # Combine identifiers and data in DataFrame and write to txt
         pd_arr = pd.DataFrame(age_arr, index=star_id)
         pd_arr.to_csv(filename, sep='\t', index_label='#ID number',
                       header=['5', '16', 'Mode', '84', '95'],
