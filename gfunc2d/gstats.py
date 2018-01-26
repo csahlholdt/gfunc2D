@@ -11,17 +11,6 @@ import pandas as pd
 import numpy as np
 from scipy.stats import norm
 from scipy.optimize import newton
-import matplotlib.pyplot as plt
-
-ids = ['HD2151', 'HD22879', 'HD10700', 'HD102870', 'HD124897', 'HD122563',
-       'HD85503', 'HD62509', 'HD113226', 'HD107328', 'HD103095', 'HD201092']
-test_output = '/Users/christian/stellar_ages/Gaia_benchmark/output_PARSEC_Vmag/output.h5'
-#test_output = '/Users/christian/stellar_ages/Gaia_benchmark/test_Mini/output.h5'
-test_id = ids[0]
-with h5py.File(test_output) as out:
-    g = out['gfuncs/' + test_id][:]
-    ages = out['grid/tau'][:]
-    fehs = out['grid/feh'][:]
 
 
 def smooth_gfunc2d(g):
@@ -84,7 +73,7 @@ def gfunc_age_conf(g_age, age_grid, conf_level=0.68):
 
 
 def print_age_stats(output_h5, filename):
-    with h5py.File(test_output) as out:
+    with h5py.File(output_h5) as out:
         ages = out['grid/tau'][:]
         gf_group = out['gfuncs']
         star_id = np.array(gf_group)
@@ -113,22 +102,3 @@ def print_age_stats(output_h5, filename):
         pd_arr.to_csv(filename, sep='\t', index_label='#ID number',
                       header=['5', '16', 'Mode', '84', '95'],
                       float_format='%2.2f', na_rep='nan')
-
-
-g = smooth_gfunc2d(g)
-g = norm_gfunc(g)
-
-g_age = gfunc_age(g)
-age = gfunc_age_mode(g_age, ages)
-conf = gfunc_age_conf(g_age, ages)
-print(age, conf)
-fig, ax = plt.subplots()
-ax.plot(ages, g_age)
-ax.axvline(x=age, ls='--')
-x1 = conf[0] if conf[0] is not None else ages[0]
-x2 = conf[1] if conf[1] is not None else ages[-1]
-ax.fill_betweenx(y=[0, 1], x1=x1, x2=x2, alpha=0.2)
-plt.show()
-
-print_age_stats(test_output, '/Users/christian/teststs.txt')
-
