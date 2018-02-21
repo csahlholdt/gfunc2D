@@ -93,12 +93,11 @@ def print_age_stats(output_h5, filename):
             age_arr_i[0:5:4] = gfunc_age_conf(g_age, ages, conf_level=0.90)
 
         # Pad identifier strings (for prettier output)
-        id_len = max([len(x) for x in star_id])
-        for i, sid in enumerate(star_id):
-            star_id[i] = sid + (id_len - len(sid))*' '
+        id_len = max((10, max([len(x) for x in star_id])))
+        star_id_pad = [x.ljust(id_len) for x in star_id]
 
         # Combine identifiers and data in DataFrame and write to txt
-        pd_arr = pd.DataFrame(age_arr, index=star_id)
+        pd_arr = pd.DataFrame(age_arr, index=star_id_pad)
         pd_arr.to_csv(filename, sep='\t', index_label='#ID number',
                       header=['5', '16', 'Mode', '84', '95'],
                       float_format='%2.2f', na_rep='nan')

@@ -44,8 +44,9 @@ def get_afa_arrays(gridfile):
 
     Parameters
     ----------
-    gridfile : h5py.File object
-        Isochrone hdf5.File object.
+    gridfile : h5py.File object or dict
+        Isochrone hdf5.File object or isochrones loaded as dictionary using the
+        load_as_dict() function.
 
     Returns
     -------
@@ -59,27 +60,50 @@ def get_afa_arrays(gridfile):
     age_array : array of float
         Array of all values of age available in the grid in ascending order.
     '''
+    # Check if gridfile has been loaded as dictionary
+    if isinstance(gridfile, dict):
+        alpha_list, feh_list, age_list = [], [], []
+        # Go through each key in the dictionary and get arrays of unique values
+        # of alpha, feh, age.
+        for path in gridfile:
+            alpha = float(path.split('/')[0].split('=')[1])
+            feh = float(path.split('/')[1].split('=')[1])
+            age = float(path.split('/')[2].split('=')[1])
 
-    # Take first alpha value in the grid and the first [Fe/H] value for that
-    # alpha
-    alpha = list(gridfile)[0]
-    feh = list(gridfile[alpha])[0]
+            if alpha not in alpha_list:
+                alpha_list.append(alpha)
+            if feh not in feh_list:
+                feh_list.append(feh)
+            if age not in age_list:
+                age_list.append(age)
 
-    # Make array of [alpha/Fe] values in the grid and sort
-    alpha_list = list(gridfile)
-    alpha_array = np.array([float(x.split('=')[1]) for x in alpha_list])
-    alpha_array.sort()
+        alpha_array = np.array(alpha_list)
+        alpha_array.sort()
+        feh_array = np.array(feh_list)
+        feh_array.sort()
+        age_array = np.array(age_list)
+        age_array.sort()
+    else:
+        # Take first alpha value in the grid and the first [Fe/H] value for that
+        # alpha
+        alpha = list(gridfile)[0]
+        feh = list(gridfile[alpha])[0]
 
-    # Make array of [Fe/H] values for the first alpha in the grid and sort
-    feh_list = list(gridfile[alpha])
-    feh_array = np.array([float(x.split('=')[1]) for x in feh_list])
-    feh_array.sort()
+        # Make array of [alpha/Fe] values in the grid and sort
+        alpha_list = list(gridfile)
+        alpha_array = np.array([float(x.split('=')[1]) for x in alpha_list])
+        alpha_array.sort()
 
-    # Make array of age values for the first (alpha, [Fe/H]) in the grid and
-    # sort
-    age_list = list(gridfile[alpha][feh])
-    age_array = np.array([float(x.split('=')[1]) for x in age_list])
-    age_array.sort()
+        # Make array of [Fe/H] values for the first alpha in the grid and sort
+        feh_list = list(gridfile[alpha])
+        feh_array = np.array([float(x.split('=')[1]) for x in feh_list])
+        feh_array.sort()
+
+        # Make array of age values for the first (alpha, [Fe/H]) in the grid and
+        # sort
+        age_list = list(gridfile[alpha][feh])
+        age_array = np.array([float(x.split('=')[1]) for x in age_list])
+        age_array.sort()
 
     return alpha_array, feh_array, age_array
 
@@ -93,8 +117,9 @@ def get_isochrone(gridfile, alpha, feh, age):
 
     Parameters
     ----------
-    gridfile : h5py.File object
-        Isochrone hdf5.File object.
+    gridfile : h5py.File object or dict
+        Isochrone hdf5.File object or isochrones loaded as dictionary using the
+        load_as_dict() function.
 
     alpha : float
         Value of [alpha/Fe].
@@ -110,6 +135,11 @@ def get_isochrone(gridfile, alpha, feh, age):
     q : dict
         Dictionary holding the data of the isochrone with parameter names as
         keys and numpy arrays as values.
+
+    closest_afa : tuple
+        The actual values of alpha, feh, and age of the returned isochrone.
+        Only different from the input values if no isochrone was found with
+        those values.
     '''
 
     isopath = get_isopath(alpha, feh, age)
@@ -122,13 +152,16 @@ def get_isochrone(gridfile, alpha, feh, age):
         age = find_nearest(ages, age)
         isopath = get_isopath(alpha, feh, age)
 
+    # Save afa which was actually used
+    closest_afa = (alpha, feh, age)
+
     # Read isochrone data and return as dictionary
-    group = gridfile[get_isopath(alpha, feh, age)]
+    group = gridfile[isopath]
     q = {}
     for param in group:
         q[param] = group[param][:]
 
-    return q
+    return q, closest_afa
 
 
 def get_gridparams(gridfile, return_units=False):
@@ -303,7 +336,7 @@ def load_as_dict(gridfile, alpha_lims=None, feh_lims=None, age_lims=None):
                 # returned by get_isochrone()) is added to isodict under the
                 # path to that isochrone in the hdf5 grid.
                 isopath = get_isopath(alpha, feh, age)
-                isodata = get_isochrone(gridfile, alpha, feh, age)
+                isodata = get_isochrone(gridfile, alpha, feh, age)[0]
                 isodict[isopath] = isodata
 
     return isodict

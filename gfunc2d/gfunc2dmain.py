@@ -52,6 +52,7 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None):
         Array of metallicities in the columns of g2D.
     '''
 
+    ### Some fixed parameters which could be given as input instead
     # Exponent for power-law IMF
     beta = 2.7
 
@@ -59,6 +60,7 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None):
     mu_prior = 10
     # Statistical weight on mu_prior
     mu_prior_w = 0.0
+    ###
 
     with h5py.File(isogrid, 'r') as gridfile:
         # Get arrays of alpha, metallicities, and ages
@@ -102,8 +104,9 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None):
             masses = masses[1:-1][pdm]
             dm = dm[pdm]
 
-            # Calculate total X2 (chi2) for all parameters but the
-            # distance modulus
+            # Calculate total chi2 for all parameters but the distance modulus
+            # The parallax is skipped explicitly, and any magnitudes are
+            # skipped due to their attribute being 'mag' which is not handled.
             chi2 = np.zeros(len(masses))
             for param in fitparams:
                 if param == 'plx':
@@ -126,13 +129,13 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None):
                     chi2 += ((obs_val - iso_val)/obs_unc)**2
 
             # The value of the G-function is calculated based on all models
-            # with X2 < 100 (if any)
+            # with chi2 < 100 (if any)
             low_chi2 = chi2 < 100
             if any(low_chi2):
                 # Initial mass function (prior on mass)
                 phi_M = masses[low_chi2]**(-beta)
 
-                # X2 and mass change for models with low X2
+                # chi2 and mass change for models with low X2
                 chi2 = chi2[low_chi2]
                 dm = dm[low_chi2]
 
@@ -242,8 +245,10 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
             loglik_save(g, tau_array, feh_array, loglik_name)
             contour_save(g, tau_array, feh_array, contour_name)
 
+        # Save plots of HR-diagram if make_hrplots
         if make_hrplots is not False:
             hr_axes = make_hrplots
+            # Find index of relevant data in input and in grid
             try:
                 hrx_data_index = inputnames.index(make_hrplots[0])
                 hry_data_index = inputnames.index(make_hrplots[1])
@@ -252,14 +257,22 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
             except:
                 raise ValueError('Both of ' + str(make_hrplots) +\
                                  ' must be in inputnames and in gridparams!')
+            # Find input metallicity. If no metallicity used, plot feh=0.
+            try:
+                feh_index = inputnames.index('FeH')
+                feh_i = data_i[feh_index]
+            except:
+                feh_i = 0
             hr_vals = (data_i[hrx_data_index], data_i[hry_data_index])
             hr_units = (gridunits[hrx_grid_index], gridunits[hry_grid_index])
             hr_name = os.path.join(outputdir, 'figures', name + '_hr.pdf')
             if hr_units[1] == 'mag':
                 plx = data_i[inputnames.index('plx')]
-                hr_save(isodict, hr_axes, hr_vals, hr_units, hr_name, par=plx)
+                hr_save(isodict, hr_axes, hr_vals, hr_units, hr_name,
+                        par=plx, feh=feh_i)
             else:
-                hr_save(isodict, hr_axes, hr_vals, hr_units, hr_name)
+                hr_save(isodict, hr_axes, hr_vals, hr_units, hr_name,
+                        feh=feh_i)
 
         # Print progress
         print(' ' + str(round((i+1) / len(data) * 100)) + '%')
