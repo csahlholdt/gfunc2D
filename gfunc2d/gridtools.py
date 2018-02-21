@@ -336,7 +336,7 @@ def load_as_dict(gridfile, alpha_lims=None, feh_lims=None, age_lims=None):
                 # returned by get_isochrone()) is added to isodict under the
                 # path to that isochrone in the hdf5 grid.
                 isopath = get_isopath(alpha, feh, age)
-                isodata = get_isochrone(gridfile, alpha, feh, age)
+                isodata = get_isochrone(gridfile, alpha, feh, age)[0]
                 isodict[isopath] = isodata
 
     return isodict

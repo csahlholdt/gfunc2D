@@ -149,11 +149,11 @@ def hr_plot(ax, isodict, hr_axes, hr_vals, hr_units, par=None,
         ax.set_ylabel(yax)
 
     ax.set_title('[Fe/H] = ' + str(act_afa[1]))
-    ax.legend(loc=2 , fontsize=12)
+    ax.legend(loc=2, fontsize=11, ncol=2)
 
 
 def hr_save(isodict, hr_axes, hr_vals, hr_units, savename, par=None,
-            alpha=0, feh=0, ages=[1, 3, 5, 10]):
+            alpha=0, feh=0, ages=[0.5, 1, 3, 6, 10, 15]):
     fig, ax = plt.subplots(figsize=(4.5,5.5))
 
     hr_plot(ax, isodict, hr_axes, hr_vals, hr_units, par=par,
