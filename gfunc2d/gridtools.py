@@ -44,8 +44,9 @@ def get_afa_arrays(gridfile):
 
     Parameters
     ----------
-    gridfile : h5py.File object
-        Isochrone hdf5.File object.
+    gridfile : h5py.File object or dict
+        Isochrone hdf5.File object or isochrones loaded as dictionary using the
+        load_as_dict() function.
 
     Returns
     -------
@@ -116,8 +117,9 @@ def get_isochrone(gridfile, alpha, feh, age):
 
     Parameters
     ----------
-    gridfile : h5py.File object
-        Isochrone hdf5.File object.
+    gridfile : h5py.File object or dict
+        Isochrone hdf5.File object or isochrones loaded as dictionary using the
+        load_as_dict() function.
 
     alpha : float
         Value of [alpha/Fe].
@@ -133,6 +135,11 @@ def get_isochrone(gridfile, alpha, feh, age):
     q : dict
         Dictionary holding the data of the isochrone with parameter names as
         keys and numpy arrays as values.
+
+    closest_afa : tuple
+        The actual values of alpha, feh, and age of the returned isochrone.
+        Only different from the input values if no isochrone was found with
+        those values.
     '''
 
     isopath = get_isopath(alpha, feh, age)
@@ -145,13 +152,16 @@ def get_isochrone(gridfile, alpha, feh, age):
         age = find_nearest(ages, age)
         isopath = get_isopath(alpha, feh, age)
 
+    # Save afa which was actually used
+    closest_afa = (alpha, feh, age)
+
     # Read isochrone data and return as dictionary
     group = gridfile[isopath]
     q = {}
     for param in group:
         q[param] = group[param][:]
 
-    return q
+    return q, closest_afa
 
 
 def get_gridparams(gridfile, return_units=False):

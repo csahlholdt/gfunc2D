@@ -109,7 +109,7 @@ def contour_save(g, tau_array, feh_array, savename, smooth=True):
 
 
 def hr_plot(ax, isodict, hr_axes, hr_vals, hr_units, par=None,
-            alpha=0, feh=0, ages=[1, 3, 5, 10]):
+            alpha=0, feh=0, ages=[0.5, 1, 3, 6, 10, 15]):
     xax, yax = hr_axes
     xval, yval = hr_vals
     xunit, yunit = hr_units
@@ -125,14 +125,17 @@ def hr_plot(ax, isodict, hr_axes, hr_vals, hr_units, par=None,
         yval_plot = yval
 
     isos = []
+    act_ages =  []
     for age in ages:
-        isos.append(get_isochrone(isodict, alpha, feh, age))
+        iso, act_afa = get_isochrone(isodict, alpha, feh, age)
+        isos.append(iso)
+        act_ages.append(act_afa[2])
 
     for i, iso in enumerate(isos):
         if yunit == 'mag':
-            ax.plot(iso[xax], yval - iso[yax], label=str(ages[i]) + ' Gyr')
+            ax.plot(iso[xax], yval - iso[yax], label=str(act_ages[i]) + ' Gyr')
         else:
-            ax.plot(iso[xax], iso[yax], label=str(ages[i]) + ' Gyr')
+            ax.plot(iso[xax], iso[yax], label=str(act_ages[i]) + ' Gyr')
 
     ax.scatter(xval_plot, yval_plot)
     if xax == 'logT':
@@ -145,7 +148,7 @@ def hr_plot(ax, isodict, hr_axes, hr_vals, hr_units, par=None,
     else:
         ax.set_ylabel(yax)
 
-    ax.set_title('[Fe/H] = ' + str(feh))
+    ax.set_title('[Fe/H] = ' + str(act_afa[1]))
     ax.legend(loc=2 , fontsize=12)
 
 
