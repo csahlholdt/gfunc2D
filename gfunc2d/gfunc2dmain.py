@@ -252,14 +252,21 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
             except:
                 raise ValueError('Both of ' + str(make_hrplots) +\
                                  ' must be in inputnames and in gridparams!')
+            try:
+                feh_index = inputnames.index('FeH')
+                feh_i = data_i[feh_index]
+            except:
+                feh_i = 0
             hr_vals = (data_i[hrx_data_index], data_i[hry_data_index])
             hr_units = (gridunits[hrx_grid_index], gridunits[hry_grid_index])
             hr_name = os.path.join(outputdir, 'figures', name + '_hr.pdf')
             if hr_units[1] == 'mag':
                 plx = data_i[inputnames.index('plx')]
-                hr_save(isodict, hr_axes, hr_vals, hr_units, hr_name, par=plx)
+                hr_save(isodict, hr_axes, hr_vals, hr_units, hr_name,
+                        par=plx, feh=feh_i)
             else:
-                hr_save(isodict, hr_axes, hr_vals, hr_units, hr_name)
+                hr_save(isodict, hr_axes, hr_vals, hr_units, hr_name,
+                        feh=feh_i)
 
         # Print progress
         print(' ' + str(round((i+1) / len(data) * 100)) + '%')
