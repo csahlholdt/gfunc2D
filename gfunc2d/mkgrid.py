@@ -24,6 +24,7 @@ def makeYY(datadir, gridfile):
               ('logT', 'log10(K)'),
               ('logL', 'log10(solar)'),
               ('logg', 'log10(cm/s2)'),
+              ('FeHini', 'dex'),
               ('U', 'mag'),
               ('B', 'mag'),
               ('V', 'mag'),
@@ -63,16 +64,17 @@ def makeYY(datadir, gridfile):
                 VmI = data_i[:, 8]
                 for i in range(4):
                     data_mags[:, i] = data_i[:, i]
-                data_mags[:, 4] = V + data_i[:, 5] + data_i[:, 6] # U = V+(U-B)+(B-V)
-                data_mags[:, 5] = V + data_i[:, 6] # B = V+(B-V)
-                data_mags[:, 6] = V # V = V
-                data_mags[:, 7] = V - data_i[:, 7] # R = V-(V-R)
-                data_mags[:, 8] = V - VmI # I = V-(V-I)
-                data_mags[:, 9] = V - data_i[:, 9] # J = V-(V-J)
-                data_mags[:, 10] = V - data_i[:, 10] # H = V-(V-H)
-                data_mags[:, 11] = V - data_i[:, 11] - 0.044 # Ks = V-(V-K)-0.044
+                data_mags[:, 4] = feh_data
+                data_mags[:, 5] = V + data_i[:, 5] + data_i[:, 6] # U = V+(U-B)+(B-V)
+                data_mags[:, 6] = V + data_i[:, 6] # B = V+(B-V)
+                data_mags[:, 7] = V # V = V
+                data_mags[:, 8] = V - data_i[:, 7] # R = V-(V-R)
+                data_mags[:, 9] = V - VmI # I = V-(V-I)
+                data_mags[:, 10] = V - data_i[:, 9] # J = V-(V-J)
+                data_mags[:, 11] = V - data_i[:, 10] # H = V-(V-H)
+                data_mags[:, 12] = V - data_i[:, 11] - 0.044 # Ks = V-(V-K)-0.044
                 G = V - 0.0354 - 0.0561*VmI - 0.1767*VmI**2 - 0.0108*VmI**3
-                data_mags[:, 12] = G
+                data_mags[:, 13] = G
 
                 # Store the data in the grid file
                 for ind, (pname, punit) in enumerate(params):
@@ -113,13 +115,11 @@ def makePARSEC(datadir, gridfile, phot_filters, version,
 
     append_mags : bool, optional
         If True, the magnitude data (in the phot_filters) are appended to an
-        existing grid and all other parameters are not stored.
+        existing grid and all other parameters (which may already be in the
+        grid) are not stored.
     '''
 
     supported_versions = ['1.1', '1.2S']
-    print("Building PARSEC isochrone grid from files in directory '"
-          + datadir + "'...")
-
     if version in supported_versions:
         if version == '1.1' or version == '1.2S':
             param_names = ['Mini', 'Mact',
@@ -130,6 +130,9 @@ def makePARSEC(datadir, gridfile, phot_filters, version,
     else:
         raise ValueError("Unknown version. Supported versions are: " +\
                          str(supported_versions))
+
+    print("Building PARSEC isochrone grid from files in directory '"
+          + datadir + "'...")
 
     for datafile in os.listdir(datadir):
         if datafile.endswith('.dat'):
@@ -229,7 +232,8 @@ def feh_age_from_filename(datafile):
 def add_isotable_to_grid(datafile, gridfile, params, units, solar_Z=0.0152,
                         feh_age_filename=True, append_mags=None):
     '''
-    Adds isochrone(s) from a single isochrone table to an isochrone grid file.
+    Adds isochrone(s) from a single isochrone table (text file) to an isochrone
+    grid file.
 
     Parameters
     ----------
@@ -245,7 +249,7 @@ def add_isotable_to_grid(datafile, gridfile, params, units, solar_Z=0.0152,
         first two which are always Z and the age.
 
     units : list
-        Units for each of the parameters in param.
+        Units for each of the parameters in `params`.
 
     solar_Z : float, optional
         The solar value of Z which is used to calculate FeH.
@@ -266,8 +270,8 @@ def add_isotable_to_grid(datafile, gridfile, params, units, solar_Z=0.0152,
         existing grid. The names in the list must be in params. If given, the
         grid must already exist with all parameters and the photometric data
         are simply appended.
-        Default value is None in which case the isochrone data are added as¨
-        usual
+        Default value is None in which case the isochrone data are added as
+        usual.
     '''
 
     data = np.loadtxt(datafile)
@@ -280,26 +284,13 @@ def add_isotable_to_grid(datafile, gridfile, params, units, solar_Z=0.0152,
                        'FeH=' + format(feh, '.4f') + '/' +\
                        'age=' + format(age, '.4f') + '/'
 
+            add_isochrone_to_grid(data, Grid, gridpath, params, units,
+                                  append_mags)
             if append_mags is None:
-                for ind, pname in enumerate(params):
-                    gname = gridpath + pname
-                    Grid[gname] = data[:, ind+2]
-                    Grid[gname].attrs.create('unit', np.string_(units[ind]))
-            else:
-                for ind, pname in enumerate(params):
-                    gname = gridpath + pname
-                    if pname == 'Mini':
-                        if any(Grid[gname] - data[:, ind+2] > 0.01):
-                            raise ValueError('Masses of the isochrone being\
-                                              appended do not match the masses\
-                                              already stored in the grid')
-                    elif pname not in append_mags:
-                        continue
-                    else:
-                        Grid[gname] = data[:, ind+2]
-                        Grid[gname].attrs.create('unit', np.string_(units[ind]))
+                Grid[gridpath + 'FeHini'] = feh*np.ones(len(data[:,0]))
+                Grid[gridpath + 'FeHini'].attrs.create('unit', np.string_('dex'))
         else:
-            Z_age, Z_age_counts = get_Z_age(datafile)
+            Z_age, Z_age_counts = Z_age_from_data(datafile)
 
             n = 0
             for i, count in enumerate(Z_age_counts):
@@ -311,18 +302,69 @@ def add_isotable_to_grid(datafile, gridfile, params, units, solar_Z=0.0152,
                            'FeH=' + format(feh, '.4f') + '/' +\
                            'age=' + format(age, '.4f') + '/'
 
-                for ind, pname in enumerate(params):
-                    gname = gridpath + pname
-                    if pname == 'Mini':
-                        if any(Grid[gname] - data[:, ind+2] > 0.01):
-                            raise ValueError('Masses of the isochrone being\
-                                              appended do not match the masses\
-                                              already stored in the grid')
-                    elif pname not in append_mags:
-                        continue
-                    else:
-                        Grid[gname] = data[:, ind+2]
-                        Grid[gname].attrs.create('unit', np.string_(units[ind]))
+                add_isochrone_to_grid(data_i, Grid, gridpath, params, units,
+                                      append_mags)
+
+                if append_mags is None:
+                    Grid[gridpath + 'FeHini'] = feh*np.ones(len(data[:,0]))
+                    Grid[gridpath + 'FeHini'].attrs.create('unit', np.string_('dex'))
 
                 n += count
 
+
+def add_isochrone_to_grid(data_array, h5py_grid, gridpath, params, units,
+                          append_mags):
+    '''
+    Adds a single isochrone stored as a numpy array loaded from a text file in
+    an open h5py grid-file.
+
+    Parameters
+    ----------
+    data_array : array
+        Array containing the isochrone data with the metallicity and age in the
+        first two columns and the parameters in `param` in the remaining
+        columns.
+
+    h5py_grid : h5py.File object
+        Isochrone hdf5.File object in which the data will be stored.
+
+    gridpath : str
+        Path into the h5py file where the data will be stored. Should
+        correspond to the alpha enhancement, metallicity, and age of the
+        isochrone being stored.
+        E.g. 'alphaFe=0.0000/FeH=0.0000/age=1.0000/'
+
+    params : list
+        Names of the parameters found in the `data_array`, excluding the
+        first two which are always Z and the age.
+
+    units : list
+        Units for each of the parameters in `params`.
+
+    append_mags : list, optional
+        List of photometric filters for which data should be appended to an
+        existing grid. The names in the list must be in params. If given, the
+        grid must already exist with all parameters and the photometric data
+        are simply appended.
+        Default value is None in which case the isochrone data are added as
+        usual.
+    '''
+
+    if append_mags is None:
+        for ind, pname in enumerate(params):
+            gname = gridpath + pname
+            h5py_grid[gname] = data_array[:, ind+2]
+            h5py_grid[gname].attrs.create('unit', np.string_(units[ind]))
+    else:
+        for ind, pname in enumerate(params):
+            gname = gridpath + pname
+            if pname == 'Mini':
+                if any(h5py_grid[gname] - data_array[:, ind+2] > 0.01):
+                    raise ValueError('Masses of the isochrone being\
+                                      appended do not match the masses\
+                                      already stored in the grid')
+            elif pname not in append_mags:
+                continue
+            else:
+                h5py_grid[gname] = data_array[:, ind+2]
+                h5py_grid[gname].attrs.create('unit', np.string_(units[ind]))

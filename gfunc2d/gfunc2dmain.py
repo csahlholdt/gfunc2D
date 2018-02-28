@@ -114,9 +114,7 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None):
 
                 obs_val, obs_unc, attr = fitparams[param]
                 if attr == 'none':
-                    if param == 'FeH':
-                        iso_val = feh*np.ones(len(masses))
-                    elif param == 'logT' or param == 'logL':
+                    if param == 'logT' or param == 'logL':
                         iso_val = 10**iso_i[param][1:-1][pdm]
                     else:
                         iso_val = iso_i[param][1:-1][pdm]
@@ -208,7 +206,8 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
         h5out['header'].create_dataset('alpha', data=alpha)
 
     # Load stellar data
-    data = np.genfromtxt(inputfile, dtype=None, names=inputnames)
+    data = np.genfromtxt(inputfile, dtype=None, names=inputnames, encoding=None)
+
     # Get indices of inputnames which should be fitted
     fit_inds = [inputnames.index(x) for x in fitnames]
 
@@ -221,9 +220,8 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
     print(' done!\n')
 
     # Loop over stars in the input file
-    for i, name in enumerate(data['name']):
+    for i, name in enumerate(data['sid']):
         # Set stellar name and data
-        name = name.decode('ASCII')
         data_i = data[i]
 
         # Make fitparams dictionary
@@ -259,7 +257,7 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
                                  ' must be in inputnames and in gridparams!')
             # Find input metallicity. If no metallicity used, plot feh=0.
             try:
-                feh_index = inputnames.index('FeH')
+                feh_index = inputnames.index('FeHini')
                 feh_i = data_i[feh_index]
             except:
                 feh_i = 0
