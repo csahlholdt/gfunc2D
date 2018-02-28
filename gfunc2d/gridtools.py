@@ -245,8 +245,6 @@ def prepare_fitparams(gridfile, fitparams):
     '''
     # Get parameters available in the grid as well as their units
     libparams, libunits = get_gridparams(gridfile, return_units=True)
-    libparams += ['FeH']
-    libunits += ['dex']
     fitparams_attr = {}
     mag = None
 
