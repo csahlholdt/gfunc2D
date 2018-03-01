@@ -121,8 +121,10 @@ def hr_plot(ax, isodict, hr_axes, hr_vals, hr_units, par=None,
 
     if yunit == 'mag':
         yval_plot = -5*np.log10(par/100)
+        legend_loc = 3
     else:
         yval_plot = yval
+        legend_loc = 2
 
     isos = []
     act_ages =  []
@@ -133,11 +135,13 @@ def hr_plot(ax, isodict, hr_axes, hr_vals, hr_units, par=None,
 
     for i, iso in enumerate(isos):
         if yunit == 'mag':
-            ax.plot(iso[xax], yval - iso[yax], label=str(act_ages[i]) + ' Gyr')
+            ax.plot(iso[xax], yval - iso[yax], '.', markersize=3, zorder=0,
+                    label=str(act_ages[i]) + ' Gyr')
         else:
-            ax.plot(iso[xax], iso[yax], label=str(act_ages[i]) + ' Gyr')
+            ax.plot(iso[xax], iso[yax], '.', markersize=3, zorder=0,
+                    label=str(act_ages[i]) + ' Gyr')
 
-    ax.scatter(xval_plot, yval_plot)
+    ax.scatter(xval_plot, yval_plot, marker='*', c='k', s=50, zorder=1)
     if xax == 'logT':
         ax.invert_xaxis()
     if yax == 'logg':
@@ -149,7 +153,7 @@ def hr_plot(ax, isodict, hr_axes, hr_vals, hr_units, par=None,
         ax.set_ylabel(yax)
 
     ax.set_title('[Fe/H] = ' + str(act_afa[1]))
-    ax.legend(loc=2, fontsize=11, ncol=2)
+    ax.legend(loc=legend_loc, fontsize=11, ncol=2)
 
 
 def hr_save(isodict, hr_axes, hr_vals, hr_units, savename, par=None,
