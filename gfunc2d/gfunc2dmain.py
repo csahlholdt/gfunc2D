@@ -221,7 +221,9 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
 
     # Loop over stars in the input file
     for i, name in enumerate(data['sid']):
-        # Set stellar name and data
+        if not isinstance(name, str):
+            name = str(name)
+        # Set stellar data
         data_i = data[i]
 
         # Make fitparams dictionary
