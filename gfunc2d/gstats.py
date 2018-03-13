@@ -18,7 +18,7 @@ def smooth_gfunc2d(g):
     func = lambda x: np.convolve(x, kernel, mode='same')
     g1 = np.apply_along_axis(func, 0, g)
     g2 = np.apply_along_axis(func, 1, g1)
-    
+
     return g2
 
 
@@ -107,16 +107,26 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
                   figdir=None):
     # Load data
     g2d = []
+    tau_grid, feh_grid = None, None
     for gfunc_file in gfunc_files:
         with h5py.File(gfunc_file, 'r') as gfile:
-            tau_grid = gfile['grid/tau'][:]
-            feh_grid = gfile['grid/feh'][:]
+            if tau_grid is not None and feh_grid is not None:
+                tau_grid_new = gfile['grid/tau'][:]
+                feh_grid_new = gfile['grid/feh'][:]
+                if not (np.array_equal(tau_grid, tau_grid_new)\
+                        and np.array_equal(feh_grid, feh_grid_new)):
+                    raise ValueError('All g-functions must be defined on ' +\
+                                     'the same metallicity grid!')
+            else:
+                tau_grid = gfile['grid/tau'][:]
+                feh_grid = gfile['grid/feh'][:]
             for starid in gfile['gfuncs']:
                 if stars is None or starid in stars:
                     gfunc = gfile['gfuncs/' + starid][:]
                     gfunc = smooth_gfunc2d(gfunc)
                     gfunc = norm_gfunc(gfunc)
                     g2d.append(gfunc)
+
     g2d = np.array(g2d)
 
     # Make grid more coarse (optionally, increases performance)
@@ -154,7 +164,7 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
 
     # initial beta and step
     if betas is None:
-        beta, dbeta, beta_max = 0.01, 0.01, 10.00
+        beta, dbeta, beta_max = 0.01, 0.01, 1.00
     else:
         beta, dbeta, beta_max = betas
 
