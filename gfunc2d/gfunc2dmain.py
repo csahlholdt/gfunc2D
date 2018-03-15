@@ -258,10 +258,14 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
                 raise ValueError('Both of ' + str(make_hrplots) +\
                                  ' must be in inputnames and in gridparams!')
             # Find input metallicity. If no metallicity used, plot feh=0.
-            try:
-                feh_index = inputnames.index('FeHini')
-                feh_i = data_i[feh_index]
-            except:
+            for potential_feh in ['FeHini', 'FeHact']:
+                try:
+                    feh_index = inputnames.index(potential_feh)
+                    feh_i = data_i[feh_index]
+                    break
+                except:
+                    continue
+            else:
                 feh_i = 0
             hr_vals = (data_i[hrx_data_index], data_i[hry_data_index])
             hr_units = (gridunits[hrx_grid_index], gridunits[hry_grid_index])
