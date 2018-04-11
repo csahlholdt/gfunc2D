@@ -272,10 +272,10 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
             hr_name = os.path.join(outputdir, 'figures', name + '_hr.pdf')
             if hr_units[1] == 'mag':
                 plx = data_i[inputnames.index('plx')]
-                hr_save(isodict, hr_axes, hr_vals, hr_units, hr_name,
+                hr_save(isodict, name, hr_axes, hr_vals, hr_units, hr_name,
                         par=plx, feh=feh_i)
             else:
-                hr_save(isodict, hr_axes, hr_vals, hr_units, hr_name,
+                hr_save(isodict, name, hr_axes, hr_vals, hr_units, hr_name,
                         feh=feh_i)
 
         # Print progress
