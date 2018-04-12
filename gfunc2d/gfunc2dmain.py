@@ -209,7 +209,10 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
     data = np.genfromtxt(inputfile, dtype=None, names=inputnames, encoding=None)
 
     # Get indices of inputnames which should be fitted
-    fit_inds = [inputnames.index(x) for x in fitnames]
+    try:
+        fit_inds = [inputnames.index(x) for x in fitnames]
+    except:
+        raise ValueError('Problem with fitnames. Check that all fitnames are in inputnames.')
 
     # Load isochrones into memory in the form of a python dictionary
     # Also get available parameters in the grid and their units
