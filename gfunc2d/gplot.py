@@ -143,19 +143,25 @@ def hr_plot(ax, isodict, sid, hr_axes, hr_vals, hr_units, par=None,
 
     ax.scatter(xval_plot, yval_plot, marker='*', c='k', s=50, zorder=1)
     if xax == 'logT':
-        ax.set_xlim(max(xval_plot-0.2, min(isos[-1][xax])), min(xval_plot+0.2, max(isos[0][xax])))
+        xlim_low = min(xval_plot-0.05, max(xval_plot-0.2, min(isos[-1][xax])))
+        xlim_high = max(xval_plot+0.05, min(xval_plot+0.2, max(isos[0][xax])))
+        ax.set_xlim(xlim_low, xlim_high)
         ax.invert_xaxis()
         ax.set_xlabel(r'$\log(T_{\mathrm{eff}}[\mathrm{K}])$')
     else:
         ax.set_xlabel(xax)
     if yax == 'logg':
-        ax.set_ylim(max(yval_plot-2, min(isos[-1][yax])), min(yval_plot+2, max(isos[-1][yax])))
+        ylim_low = min(yval_plot-0.5, max(yval_plot-2, min(isos[-1][yax])))
+        ylim_high = max(yval_plot+0.5, min(yval_plot+2, max(isos[-1][yax])))
+        ax.set_ylim(ylim_low, ylim_high)
         ax.invert_yaxis()
         ax.set_ylabel(r'$\log g\;\;[\log(\mathrm{cm}/\mathrm{s}^2)]$')
     else:
         ax.set_ylabel(yax)
     if yunit == 'mag':
-        ax.set_ylim(max(yval_plot-4, yval-max(isos[-1][yax])), min(yval_plot+4, yval-min(isos[-1][yax])))
+        ylim_low = min(yval_plot-1, max(yval_plot-4, yval-max(isos[-1][yax])))
+        ylim_high = max(yval_plot+1, min(yval_plot+4, yval-min(isos[-1][yax])))
+        ax.set_ylim(ylim_low, ylim_high)
         ax.set_ylabel(r'$\mu$ (Distance modulus)')
 
     ax.set_title(sid + ', [Fe/H] = ' + str(act_afa[1]))
