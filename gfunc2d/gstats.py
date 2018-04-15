@@ -23,6 +23,9 @@ def smooth_gfunc2d(g):
 
 
 def norm_gfunc(g, method='maxone'):
+    if np.amax(g) == 0:
+        return g
+
     if method == 'maxone':
         gnorm = g / np.amax(g)
 #    elif method == 'other_method':
@@ -72,6 +75,21 @@ def gfunc_age_conf(g_age, age_grid, conf_level=0.68):
     return age_conf
 
 
+def age_mode_and_conf(g_age, age_grid, conf_levels=[0.68, 0.90]):
+    n = len(conf_levels)
+    age_arr = np.zeros(1+2*n)
+
+    age_arr[n] = gfunc_age_mode(g_age, age_grid)
+    for i in range(1, n+1):
+        try:
+            age_arr[n-i:n+i+1:2*i] = gfunc_age_conf(g_age, age_grid, conf_level=conf_levels[i-1])
+        except:
+            age_arr[:] = None
+            break
+
+    return age_arr
+
+
 def print_age_stats(output_h5, filename):
     with h5py.File(output_h5) as out:
         ages = out['grid/tau'][:]
@@ -80,17 +98,12 @@ def print_age_stats(output_h5, filename):
 
         n_star = len(star_id)
         age_arr = np.zeros((n_star, 5))
-
         for i, star in enumerate(star_id):
             g = gf_group[star][:]
             g = smooth_gfunc2d(g)
             g = norm_gfunc(g)
             g_age = gfunc_age(g)
-            age_arr_i = age_arr[i]
-
-            age_arr_i[2] = gfunc_age_mode(g_age, ages)
-            age_arr_i[1:4:2] = gfunc_age_conf(g_age, ages)
-            age_arr_i[0:5:4] = gfunc_age_conf(g_age, ages, conf_level=0.90)
+            age_arr[i] = age_mode_and_conf(g_age, ages)
 
         # Pad identifier strings (for prettier output)
         id_len = max((10, max([len(x) for x in star_id])))
