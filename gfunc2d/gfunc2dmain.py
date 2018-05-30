@@ -222,12 +222,17 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
         gridparams, gridunits = gt.get_gridparams(gridfile, return_units=True)
     print(' done!\n')
 
+    # Make sure that the case of a single star is handled correctly
+    sids = np.atleast_1d(data['sid'])
     # Loop over stars in the input file
-    for i, name in enumerate(data['sid']):
+    for i, name in enumerate(sids):
         if not isinstance(name, str):
             name = str(name)
         # Set stellar data
-        data_i = data[i]
+        if len(sids) == 1:
+            data_i = data[()]
+        else:
+            data_i = data[i]
 
         # Make fitparams dictionary
         fitparams = {inputnames[k]: (data_i[k], data_i[k+1]) for k in fit_inds}
@@ -282,7 +287,10 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
                         feh=feh_i)
 
         # Print progress
-        print(' ' + str(round((i+1) / len(data) * 100)) + '%')
+        if len(sids) == 1:
+            print(' 100%')
+        else:
+            print(' ' + str(round((i+1) / len(data) * 100)) + '%')
 
     # Save (tau, feh)-grid
     with h5py.File(output_h5) as h5out:

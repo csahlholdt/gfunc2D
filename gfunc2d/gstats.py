@@ -94,7 +94,10 @@ def print_age_stats(output_h5, filename):
     with h5py.File(output_h5) as out:
         ages = out['grid/tau'][:]
         gf_group = out['gfuncs']
-        star_id = np.array(gf_group)
+        if len(gf_group) == 1:
+            star_id = np.array([star for star in gf_group])
+        else:
+            star_id = np.array(gf_group)
 
         n_star = len(star_id)
         age_arr = np.zeros((n_star, 5))
