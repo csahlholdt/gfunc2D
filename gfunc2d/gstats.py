@@ -90,7 +90,7 @@ def age_mode_and_conf(g_age, age_grid, conf_levels=[0.68, 0.90]):
     return age_arr
 
 
-def print_age_stats(output_h5, filename):
+def print_age_stats(output_h5, filename, smooth=True):
     with h5py.File(output_h5) as out:
         ages = out['grid/tau'][:]
         gf_group = out['gfuncs']
@@ -103,7 +103,8 @@ def print_age_stats(output_h5, filename):
         age_arr = np.zeros((n_star, 5))
         for i, star in enumerate(star_id):
             g = gf_group[star][:]
-            g = smooth_gfunc2d(g)
+            if smooth:
+                g = smooth_gfunc2d(g)
             g = norm_gfunc(g)
             g_age = gfunc_age(g)
             age_arr[i] = age_mode_and_conf(g_age, ages)
