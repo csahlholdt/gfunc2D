@@ -4,7 +4,7 @@ import h5py
 import numpy as np
 from datetime import datetime
 import gfunc2d.gridtools as gt
-from gfunc2d.marg_mu import marginalise_mu as margm
+from gfunc2d.marg_mu import marginalise_mu_fast as margm
 from gfunc2d.gplot import loglik_save, contour_save, hr_save
 from gfunc2d.gstats import print_age_stats
 
