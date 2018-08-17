@@ -220,8 +220,8 @@ def marginalise_mu(plx_obs, plx_sigma,
     return lik_int_mu
 
 
-def marginalise_mu_fast(plx_obs, plx_sigma,
-                        mag_obs, mag_sigma, mag_abs, mu_prior, mu_prior_w):
+def marginalise_mu_simple(plx_obs, plx_sigma,
+                          mag_obs, mag_sigma, mag_abs, mu_prior, mu_prior_w):
     '''
     Returns the integral over mu (distance modulus) of the relative likelihood
     function L(mu) = exp(-0.5*X2), where
