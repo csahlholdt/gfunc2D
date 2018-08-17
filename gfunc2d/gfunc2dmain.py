@@ -5,11 +5,12 @@ import numpy as np
 from datetime import datetime
 import gfunc2d.gridtools as gt
 from gfunc2d.marg_mu import marginalise_mu as margm
+from gfunc2d.marg_mu import marginalise_mu_simple as margm2
 from gfunc2d.gplot import loglik_save, contour_save, hr_save
 from gfunc2d.gstats import print_age_stats
 
 
-def gfunc2d(isogrid, fitparams, alpha, isodict=None):
+def gfunc2d(isogrid, fitparams, alpha, isodict=None, margm_fast=True):
     '''
     Python version of the MATLAB script gFunc2D.m
     C Sahlholdt, 2017 Oct 27 (translated to Python)
@@ -38,6 +39,12 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None):
         speeds up the code significantly since the data has already been loaded
         into the memory (very useful when looping this function over several
         stars).
+
+    margm_fast : bool, optional
+        If fitting to the parallax ('plx' in fitparams), one can choose a fast
+        method for the marginalisation over the distance modulus by setting this
+        value to True. A slower (but slightly more exact) method is used otherwise.
+        Default value is True.
 
     Returns
     -------
@@ -146,14 +153,47 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None):
                 # for each mass) if an apparent magnitude is in fitparams.
                 if app_mag is not None:
                     lik_int_mu = np.ones(len(chi2))
+                    # Get data
                     obs_mag, obs_unc = fitparams[app_mag][:2]
                     iso_mags = iso_i[app_mag][1:-1][pdm][low_chi2]
                     plx_obs, plx_unc = fitparams['plx'][:2]
+                    # Define 3-sigma interval of distance modulus based on
+                    # observed parallax
+                    plx_int = [plx_obs-3*plx_unc, plx_obs+3*plx_unc]
+                    mu_plx_int = [-5*np.log10(plx_int[1]/100),
+                                  -5*np.log10(plx_int[0]/100)]
+
                     for i_mass in range(len(chi2)):
-                        iso_mag = iso_mags[i_mass]
-                        lik_int_mu[i_mass] = margm(plx_obs, plx_unc, obs_mag,
-                                                   obs_unc, iso_mag, mu_prior,
-                                                   mu_prior_w)
+                        run_marg_mu = False
+                        iso_mag = iso_mags[i_mass] # Absolute magnitude
+                        # 3-sigma interval of mu from magnitudes
+                        mu_mag_int = [(obs_mag-iso_mag)-3*obs_unc,
+                                      (obs_mag-iso_mag)+3*obs_unc]
+
+                        # Only run marginalisation if the 3-sigma intervals
+                        # of mu based on the magnitude and parallax overlap
+                        # (or if the parallax is negative within 3-sigma)
+                        if plx_int[1] < 0:
+                            run_marg_mu = True
+                        elif plx_int[0] < 0 and mu_plx_int[0] < mu_mag_int[1]:
+                            run_marg_mu = True
+                        elif plx_int[0] > 0:
+                            if mu_plx_int[0] <= mu_mag_int[1] and mu_mag_int[0] <= mu_plx_int[1]:
+                                run_marg_mu = True
+
+                        if run_marg_mu:
+                            if margm_fast:
+                                lik_int_mu[i_mass] = margm2(plx_obs, plx_unc, obs_mag,
+                                                            obs_unc, iso_mag, mu_prior,
+                                                            mu_prior_w)
+                            else:
+                                lik_int_mu[i_mass] = margm(plx_obs, plx_unc, obs_mag,
+                                                           obs_unc, iso_mag, mu_prior,
+                                                           mu_prior_w)
+                        else:
+                            # If the magnitude and parallax imply values of mu
+                            # which are too different
+                            lik_int_mu[i_mass] = 0
 
                     # The marginalisation over mass is carried out to give
                     # the value of the G-function for the current
@@ -170,7 +210,7 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None):
 
 def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
                 alpha=0.0, make_gplots=True, make_hrplots=False,
-                output_ages=True):
+                output_ages=True, margm_fast=True):
     '''
     docstring
     '''
@@ -240,7 +280,8 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
         # Compute G-function
         print('Processing ' + name + '...', end=''); sys.stdout.flush()
         g, tau_array, feh_array = gfunc2d(isogrid, fitparams,
-                                          alpha, isodict=isodict)
+                                          alpha, isodict=isodict,
+                                          margm_fast=margm_fast)
 
         # Save G-function
         with h5py.File(output_h5) as h5out:
