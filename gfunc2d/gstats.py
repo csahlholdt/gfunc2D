@@ -145,7 +145,7 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
         k = m
     elif case == '2D':
         k = m*l
-        g = g2d.reshape(n, k)
+        g = g2d.reshape(n, k, order='F')
 
     #------------------------------------------------
     # Set up for estimating age distribution phi(1:k)
@@ -272,7 +272,7 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
         if case == '1D':
             samd.append(phi)
         elif case == '2D':
-            samd.append(phi.reshape(m, l))
+            samd.append(phi.reshape(m, l, order='F'))
 
         # entropy
         E = np.sum(w * phi * np.log(phi / Phi))
