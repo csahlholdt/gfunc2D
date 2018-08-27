@@ -1,4 +1,6 @@
 import numpy as np
+import maplotlib as mpl
+mpl.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.style as mpls
 mpls.use('classic')
