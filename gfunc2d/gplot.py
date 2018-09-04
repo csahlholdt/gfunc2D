@@ -161,7 +161,8 @@ def hr_plot(ax, isodict, sid, hr_axes, hr_vals, hr_units, par=None,
     if yunit == 'mag':
         ylim_low = min(yval_plot-1, max(yval_plot-4, yval-max(isos[-1][yax])))
         ylim_high = max(yval_plot+1, min(yval_plot+4, yval-min(isos[-1][yax])))
-        ax.set_ylim(ylim_low, ylim_high)
+        if np.isfinite(ylim_low) and np.isfinite(ylim_high):
+            ax.set_ylim(ylim_low, ylim_high)
         ax.set_ylabel(r'$\mu$ (Distance modulus)')
 
     ax.set_title(sid + ', [Fe/H] = ' + str(act_afa[1]))
