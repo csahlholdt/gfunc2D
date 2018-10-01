@@ -24,7 +24,11 @@ def smooth_gfunc2d(g):
 
 def norm_gfunc(g, method='maxone'):
     if method == 'maxone':
-        gnorm = g / np.amax(g)
+        gmax = np.amax(g)
+        if gmax == 0:
+            gnorm = np.ones_like(g)
+        else:
+            gnorm = g / np.amax(g)
 #    elif method == 'other_method':
 #        gnorm = ...
     else:
