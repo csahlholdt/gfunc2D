@@ -14,6 +14,20 @@ from scipy.optimize import newton
 
 
 def smooth_gfunc2d(g):
+    '''
+    Smooth a 2D G function.
+
+    Parameters
+    ----------
+    g : array
+        2D G function.
+
+    Returns
+    -------
+    g2 : array
+        Smoothed 2D G function.
+    '''
+
     kernel = np.array([0.25, 0.5, 0.25])
     func = lambda x: np.convolve(x, kernel, mode='same')
     g1 = np.apply_along_axis(func, 0, g)
@@ -23,6 +37,24 @@ def smooth_gfunc2d(g):
 
 
 def norm_gfunc(g, method='maxone'):
+    '''
+    Normalise G function.
+
+    Parameters
+    ----------
+    g : array
+        1D/2D G function.
+
+    method : str, optional
+        Normalisation method.
+        Default is 'maxone' which scales the maximum value to unity.
+
+    Returns
+    -------
+    gnorm : array
+        Normalised G function.
+    '''
+
     if method == 'maxone':
         gmax = np.amax(g)
         if gmax == 0:
@@ -38,6 +70,28 @@ def norm_gfunc(g, method='maxone'):
 
 
 def gfunc_age(g, norm=True, norm_method='maxone'):
+    '''
+    Get the 1D age G function from the 2D G function.
+
+    Parameters
+    ----------
+    g : array
+        1D/2D G function.
+
+    norm : bool, optional
+        Normalise the G function before returning.
+        Default value is True.
+
+    norm_method : str, optional
+        Normalisation method to use if `norm=True`.
+        Default is 'maxone'.
+
+    Returns
+    -------
+    g_age : array
+        1D age G function.
+    '''
+
     g_age = np.sum(g, axis=1)
     if norm:
         g_age = norm_gfunc(g_age, norm_method)
@@ -46,6 +100,24 @@ def gfunc_age(g, norm=True, norm_method='maxone'):
 
 
 def gfunc_age_mode(g_age, age_grid):
+    '''
+    Get the mode of a 1D age G function.
+
+    Parameters
+    ----------
+    g_age : array
+        1D age G function.
+
+    age_grid: array
+        The age values on which `g_age` is defined.
+        Must be same length as g_age.
+
+    Returns
+    -------
+    age_mode : array
+        Mode of the 1D age G function.
+    '''
+
     ind = np.argmax(g_age)
     age_mode = age_grid[ind]
 
@@ -53,6 +125,23 @@ def gfunc_age_mode(g_age, age_grid):
 
 
 def conf_glim(conf_level):
+    '''
+    Get the limiting value of a 1D age G function corresponding
+    to a certain age confidence level.
+    This is calculating assuming that the G function can be approximated
+    by a Gaussian.
+
+    Parameters
+    ----------
+    conf_level : float
+        Confidence level as a fraction (between 0 and 1).
+
+    Returns
+    -------
+    glim : float
+        Limit on the G function setting the confidence limits.
+    '''
+
     assert conf_level > 0 and conf_level < 1
 
     zero_func = lambda x: 2*norm.cdf(np.sqrt(-2*np.log(x))) - 1 - conf_level
@@ -62,6 +151,31 @@ def conf_glim(conf_level):
 
 
 def gfunc_age_conf(g_age, age_grid, conf_level=0.68):
+    '''
+    Get the confidence interval of the age from a 1D G function.
+
+    Parameters
+    ----------
+    g_age : array
+        1D age G function.
+
+    age_grid : array
+        The age values on which `g_age` is defined.
+        Must be same length as g_age.
+
+    conf_level : float
+        Confidence level as a fraction (between 0 and 1).
+        Default value is 0.68 corresponding to 1 sigma for a Gaussian.
+
+    Returns
+    -------
+    age_conf : tuple
+        Lower and upper limit on the confidence interval of the age.
+        None is returned if no limit exists (the G function does not fall
+        below the critical value given by the confidence level before
+        hitting the edge of the age_grid).
+    '''
+
     glim = conf_glim(conf_level)
 
     ages_lim = age_grid[g_age > glim]
@@ -77,6 +191,26 @@ def gfunc_age_conf(g_age, age_grid, conf_level=0.68):
 
 
 def print_age_stats(output_h5, filename):
+    '''
+    Function for printing ages and confidence intervals to a text file
+    based on an output hdf5 file (containing the 2D G functions).
+    The age statistics which are printet are the mode of the G function as
+    well as the 68 and 90% confidence intervals (this can be changed in
+    the source code).
+
+    Parameters
+    ----------
+    output_h5 : str
+        Path to the output hdf5 file.
+
+    filename : str
+        Name of the text file with the age output.
+
+    conf_level : float
+        Confidence level as a fraction (between 0 and 1).
+        Default value is 0.68 corresponding to 1 sigma for a Gaussian.
+    '''
+
     with h5py.File(output_h5) as out:
         ages = out['grid/tau'][:]
         gf_group = out['gfuncs']
@@ -108,7 +242,75 @@ def print_age_stats(output_h5, filename):
 
 
 def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
-                  figdir=None):
+                  max_iter=10, min_tol=1.e-20):
+    '''
+    Function for estimating the sample age metallicity distribution (samd) OR
+    simply the sample age distribution (sad).
+
+    This uses a Newton-Raphson minimisation to find the function phi which
+    maximises the likelihood L(phi) = sum(L_i(phi)), where
+        L_i(phi) = int(G_i(theta)*phi(theta)) ,
+    and G_i are the G functions and theta is either the age (in the 1D case)
+    or both the age and metallicity (in the 2D) case.
+
+    Parameters
+    ----------
+    gfunc_files : list
+        List of paths to the output hdf5 files containing the 2D G functions.
+        If more than one, the output in the different files MUST be defined on
+        the same age/metallicity grids.
+
+    case : str
+        Determines whether the 2D (samd) or 1D (sad) is calculated.
+        '2D' for samd and '1D' for sad. Default is '1D'.
+
+    betas : tuple
+        Beta is a regularization parameter which regulates how strongly the
+        solution favors a flat (constant) function (0 is most strict, higher
+        numbers are less strict).
+        betas should be a tuple containing the three floats beta, dbeta, and
+        beta_max. beta is the initial value, dbeta is the step, and beta_max is
+        the maximum value which, if hit, stops the computation.
+        beta (the initial value) should be close to 0 and dbeta not too large
+        to allow a gentle convergence towards a sensible solution.
+        Default is None in which case the values (0.01, 0.01, 1.00) are used.
+
+    stars : list of str
+        List of star identifiers (as used in the gfunc_files) to be included in
+        the calculation.
+        Default is None in which case all stars are included.
+
+    dilut : int
+        Dilution factor. If specified, only every `dilut`th age and metallicity
+        grid point is considered. This increases performance by lowering the
+        size of the problem.
+        Default is None in which case all grid points are considered.
+
+    max_iter : int
+        Maximum number of Newton-Raphson iterations per beta.
+        Default value is 10
+
+    min_tol : float
+        Minimum value that the samd/sad must reach in order to end the
+        calculation.
+
+    Returns
+    -------
+    samd : list
+        List of samd/sad with one entry for each value of beta.
+
+    Q : list
+        List of same length as `samd`. Each entry is a list giving the values of
+        beta, the negative log-likelihood of the solution, and its entropy.
+
+    tau_grid : array
+        Age grid on which the input G functions were defined (taken from on of
+        the `gfunc_files`).
+
+    feh_grid : array
+        Metallicity grid on which the input G functions were defined (taken
+        from on of the `gfunc_files`).
+    '''
     # Load data
     g2d = []
     tau_grid, feh_grid = None, None
@@ -144,6 +346,8 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
     m = len(tau_grid)
     n = g2d.shape[0]
 
+    # Define matrix with n g-functions
+    # (in 2D case each g-function is flattened first)
     if case == '1D':
         g = np.sum(g2d, axis=2)
         k = m
@@ -172,10 +376,6 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
     else:
         beta, dbeta, beta_max = betas
 
-    # max number of Newton-Raphson iterations per beta
-    max_iter = 10
-    min_tol = 1.e-20
-
     # Gw = G matrix, with each column multiplied by w(j)
     gw = np.zeros((n, k))
     for j in range(k):
@@ -185,45 +385,13 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
     gwu = np.zeros((n, k))
 
     finished = False
-#    y_max_plot = 5
-#    if figdir is None:
-#        figdir = './'
 
     # list to hold beta, L, E
     Q = []
     # list to hold phi (the age/age-metallicity distribution)
     samd = []
-#    # set-up for plotting phi
-#    if case == '1D':
-#        fig, ax = plt.subplots()
-#        phi_plot, = ax.plot(tau_grid, phi)
-#        ax.set_xlabel('Age [Gyr]')
-#        ax.set_ylabel('Relative frequency')
-#        ax.set_title('beta = ' + str(round(beta, 4)))
-#        ax.axhline(1, c='g', ls='--')
-#        ax.set_xlim([0, tau_grid[-1]])
-#        ax.set_ylim([0, y_max_plot])
-#        ax.grid()
-#        fig.savefig(os.path.join(figdir, 'samd1d_0.pdf'))
-#    elif case == '2D':
-#        fig, ax = plt.subplots()
-#        dtau = tau_array[1] - tau_array[0]
-#        dfeh = feh_array[1] - feh_array[0]
-#        plot_lims = (tau_array[0]-dtau, tau_array[-1]+dtau,
-#                     feh_array[0]-dfeh, feh_array[-1]+dfeh)
-#        cax = ax.imshow(phi.reshape(m, l), origin='lower', extent=plot_lims,
-#                        aspect='auto', interpolation='none')
-#        cbar = plt.gcf().colorbar(cax)
-#        cbar.set_label('Relative frequency')
-#        ax.set_xlabel('Age [Gyr]')
-#        ax.set_ylabel('[Fe/H]')
-#        ax.set_title('beta = ' + str(round(beta, 4)))
-#        ax.grid()
-#        ax.set_xlim(plot_lims[:2])
-#        ax.set_ylim(plot_lims[2:])
-#        fig.savefig(os.path.join(figdir, 'samd2d_0.pdf'))
 
-    beta_i = 1
+    # Perform Newton-Raphson minimisation
     while not finished:
         for iterr in range(max_iter):
             u = np.dot(gw, phi)
@@ -287,20 +455,6 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
         # add to list Q
         Q.append([beta, L, E])
 
-        # plot current phi
-        # need to reduce y-scale?
-#        if np.amax(phi) > y_max_plot*0.95:
-#            y_max_plot *= 2
-#
-#        ax.set_title('beta = ' + str(round(beta, 4)))
-#        if case == '1D':
-#            ax.set_ylim([0, y_max_plot])
-#            phi_plot.set_ydata(phi)
-#            fig.savefig(os.path.join(figdir, 'samd1d_' + str(beta_i) + '.pdf'))
-#        elif case == '2D':
-#            continue
-
         beta += dbeta
-        beta_i += 1
 
     return samd, Q, tau_grid, feh_grid
