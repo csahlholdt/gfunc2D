@@ -191,6 +191,33 @@ def gfunc_age_conf(g_age, age_grid, conf_level=0.68):
 
   
 def age_mode_and_conf(g_age, age_grid, conf_levels=[0.68, 0.90]):
+    '''
+    Get the mode and confidence interval for a 1D age G function with
+    a number of confidence intervals.
+
+    Parameters
+    ----------
+    g_age : array
+        1D age G function.
+
+    age_grid : array
+        The age values on which `g_age` is defined.
+        Must be same length as g_age.
+
+    conf_levels : list of float
+        Confidence levels as fractions (between 0 and 1).
+        Default value is [0.68, 0.90].
+
+    Returns
+    -------
+    age_err : list
+        List of length 1+2*len(`conf_levels`). The middle entry is
+        the age mode, and the surrounding values are the confidence
+        interval.
+        For example with conf_levels=[0.68, 0.90] it returns the list
+        [5%, 16%, mode, 84%, 95%].
+    '''
+
     n = len(conf_levels)
     age_arr = np.zeros(1+2*n)
 
