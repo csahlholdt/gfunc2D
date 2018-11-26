@@ -108,7 +108,7 @@ def contour_save(g, tau_array, feh_array, savename, smooth=True):
     plt.close(fig)
 
 
-def hr_plot(ax, isodict, hr_axes, hr_vals, hr_units, par=None,
+def hr_plot(ax, isodict, sid, hr_axes, hr_vals, hr_units, par=None,
             alpha=0, feh=0, ages=[0.5, 1, 3, 6, 10, 15]):
     xax, yax = hr_axes
     xval, yval = hr_vals
@@ -143,24 +143,37 @@ def hr_plot(ax, isodict, hr_axes, hr_vals, hr_units, par=None,
 
     ax.scatter(xval_plot, yval_plot, marker='*', c='k', s=50, zorder=1)
     if xax == 'logT':
+        xlim_low = min(xval_plot-0.05, max(xval_plot-0.2, min(isos[-1][xax])))
+        xlim_high = max(xval_plot+0.05, min(xval_plot+0.2, max(isos[0][xax])))
+        ax.set_xlim(xlim_low, xlim_high)
         ax.invert_xaxis()
+        ax.set_xlabel(r'$\log(T_{\mathrm{eff}}[\mathrm{K}])$')
+    else:
+        ax.set_xlabel(xax)
     if yax == 'logg':
+        ylim_low = min(yval_plot-0.5, max(yval_plot-2, min(isos[-1][yax])))
+        ylim_high = max(yval_plot+0.5, min(yval_plot+2, max(isos[-1][yax])))
+        ax.set_ylim(ylim_low, ylim_high)
         ax.invert_yaxis()
-    ax.set_xlabel(xax)
-    if yunit == 'mag':
-        ax.set_ylabel(r'$\mu$')
+        ax.set_ylabel(r'$\log g\;\;[\log(\mathrm{cm}/\mathrm{s}^2)]$')
     else:
         ax.set_ylabel(yax)
+    if yunit == 'mag':
+        ylim_low = min(yval_plot-1, max(yval_plot-4, yval-max(isos[-1][yax])))
+        ylim_high = max(yval_plot+1, min(yval_plot+4, yval-min(isos[-1][yax])))
+        if np.isfinite(ylim_low) and np.isfinite(ylim_high):
+            ax.set_ylim(ylim_low, ylim_high)
+        ax.set_ylabel(r'$\mu$ (Distance modulus)')
 
-    ax.set_title('[Fe/H] = ' + str(act_afa[1]))
-    ax.legend(loc=legend_loc, fontsize=11, ncol=2)
+    ax.set_title(sid + ', [Fe/H] = ' + str(act_afa[1]))
+    #ax.legend(loc=legend_loc, fontsize=11, ncol=2)
 
 
-def hr_save(isodict, hr_axes, hr_vals, hr_units, savename, par=None,
+def hr_save(isodict, sid, hr_axes, hr_vals, hr_units, savename, par=None,
             alpha=0, feh=0, ages=[0.5, 1, 3, 6, 10, 15]):
     fig, ax = plt.subplots(figsize=(4.5,5.5))
 
-    hr_plot(ax, isodict, hr_axes, hr_vals, hr_units, par=par,
+    hr_plot(ax, isodict, sid, hr_axes, hr_vals, hr_units, par=par,
             alpha=alpha, feh=feh, ages=ages)
 
     fig.tight_layout()

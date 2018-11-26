@@ -5,11 +5,12 @@ import numpy as np
 from datetime import datetime
 import gfunc2d.gridtools as gt
 from gfunc2d.marg_mu import marginalise_mu as margm
+from gfunc2d.marg_mu import marginalise_mu_simple as margm2
 from gfunc2d.gplot import loglik_save, contour_save, hr_save
 from gfunc2d.gstats import print_age_stats
 
 
-def gfunc2d(isogrid, fitparams, alpha, isodict=None):
+def gfunc2d(isogrid, fitparams, alpha, isodict=None, margm_fast=True):
     '''
     Python version of the MATLAB script gFunc2D.m
     C Sahlholdt, 2017 Oct 27 (translated to Python)
@@ -38,6 +39,12 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None):
         speeds up the code significantly since the data has already been loaded
         into the memory (very useful when looping this function over several
         stars).
+
+    margm_fast : bool, optional
+        If fitting to the parallax ('plx' in fitparams), one can choose a fast
+        method for the marginalisation over the distance modulus by setting this
+        value to True. A slower (but slightly more exact) method is used otherwise.
+        Default value is True.
 
     Returns
     -------
@@ -146,14 +153,47 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None):
                 # for each mass) if an apparent magnitude is in fitparams.
                 if app_mag is not None:
                     lik_int_mu = np.ones(len(chi2))
+                    # Get data
                     obs_mag, obs_unc = fitparams[app_mag][:2]
                     iso_mags = iso_i[app_mag][1:-1][pdm][low_chi2]
                     plx_obs, plx_unc = fitparams['plx'][:2]
+                    # Define 3-sigma interval of distance modulus based on
+                    # observed parallax
+                    plx_int = [plx_obs-3*plx_unc, plx_obs+3*plx_unc]
+                    mu_plx_int = [-5*np.log10(plx_int[1]/100),
+                                  -5*np.log10(plx_int[0]/100)]
+
                     for i_mass in range(len(chi2)):
-                        iso_mag = iso_mags[i_mass]
-                        lik_int_mu[i_mass] = margm(plx_obs, plx_unc, obs_mag,
-                                                   obs_unc, iso_mag, mu_prior,
-                                                   mu_prior_w)
+                        run_marg_mu = False
+                        iso_mag = iso_mags[i_mass] # Absolute magnitude
+                        # 3-sigma interval of mu from magnitudes
+                        mu_mag_int = [(obs_mag-iso_mag)-3*obs_unc,
+                                      (obs_mag-iso_mag)+3*obs_unc]
+
+                        # Only run marginalisation if the 3-sigma intervals
+                        # of mu based on the magnitude and parallax overlap
+                        # (or if the parallax is negative within 3-sigma)
+                        if plx_int[1] < 0:
+                            run_marg_mu = True
+                        elif plx_int[0] < 0 and mu_plx_int[0] < mu_mag_int[1]:
+                            run_marg_mu = True
+                        elif plx_int[0] > 0:
+                            if mu_plx_int[0] <= mu_mag_int[1] and mu_mag_int[0] <= mu_plx_int[1]:
+                                run_marg_mu = True
+
+                        if run_marg_mu:
+                            if margm_fast:
+                                lik_int_mu[i_mass] = margm2(plx_obs, plx_unc, obs_mag,
+                                                            obs_unc, iso_mag, mu_prior,
+                                                            mu_prior_w)
+                            else:
+                                lik_int_mu[i_mass] = margm(plx_obs, plx_unc, obs_mag,
+                                                           obs_unc, iso_mag, mu_prior,
+                                                           mu_prior_w)
+                        else:
+                            # If the magnitude and parallax imply values of mu
+                            # which are too different
+                            lik_int_mu[i_mass] = 0
 
                     # The marginalisation over mass is carried out to give
                     # the value of the G-function for the current
@@ -170,7 +210,7 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None):
 
 def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
                 alpha=0.0, make_gplots=True, make_hrplots=False,
-                output_ages=True):
+                output_ages=True, margm_fast=True):
     '''
     docstring
     '''
@@ -209,7 +249,10 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
     data = np.genfromtxt(inputfile, dtype=None, names=inputnames, encoding=None)
 
     # Get indices of inputnames which should be fitted
-    fit_inds = [inputnames.index(x) for x in fitnames]
+    try:
+        fit_inds = [inputnames.index(x) for x in fitnames]
+    except:
+        raise ValueError('Problem with fitnames. Check that all fitnames are in inputnames.')
 
     # Load isochrones into memory in the form of a python dictionary
     # Also get available parameters in the grid and their units
@@ -219,12 +262,17 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
         gridparams, gridunits = gt.get_gridparams(gridfile, return_units=True)
     print(' done!\n')
 
+    # Make sure that the case of a single star is handled correctly
+    sids = np.atleast_1d(data['sid'])
     # Loop over stars in the input file
-    for i, name in enumerate(data['sid']):
+    for i, name in enumerate(sids):
         if not isinstance(name, str):
             name = str(name)
         # Set stellar data
-        data_i = data[i]
+        if len(sids) == 1:
+            data_i = data[()]
+        else:
+            data_i = data[i]
 
         # Make fitparams dictionary
         fitparams = {inputnames[k]: (data_i[k], data_i[k+1]) for k in fit_inds}
@@ -232,7 +280,8 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
         # Compute G-function
         print('Processing ' + name + '...', end=''); sys.stdout.flush()
         g, tau_array, feh_array = gfunc2d(isogrid, fitparams,
-                                          alpha, isodict=isodict)
+                                          alpha, isodict=isodict,
+                                          margm_fast=margm_fast)
 
         # Save G-function
         with h5py.File(output_h5) as h5out:
@@ -258,24 +307,31 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
                 raise ValueError('Both of ' + str(make_hrplots) +\
                                  ' must be in inputnames and in gridparams!')
             # Find input metallicity. If no metallicity used, plot feh=0.
-            try:
-                feh_index = inputnames.index('FeHini')
-                feh_i = data_i[feh_index]
-            except:
+            for potential_feh in ['FeHini', 'FeHact']:
+                try:
+                    feh_index = inputnames.index(potential_feh)
+                    feh_i = data_i[feh_index]
+                    break
+                except:
+                    continue
+            else:
                 feh_i = 0
             hr_vals = (data_i[hrx_data_index], data_i[hry_data_index])
             hr_units = (gridunits[hrx_grid_index], gridunits[hry_grid_index])
             hr_name = os.path.join(outputdir, 'figures', name + '_hr.pdf')
             if hr_units[1] == 'mag':
                 plx = data_i[inputnames.index('plx')]
-                hr_save(isodict, hr_axes, hr_vals, hr_units, hr_name,
+                hr_save(isodict, name, hr_axes, hr_vals, hr_units, hr_name,
                         par=plx, feh=feh_i)
             else:
-                hr_save(isodict, hr_axes, hr_vals, hr_units, hr_name,
+                hr_save(isodict, name, hr_axes, hr_vals, hr_units, hr_name,
                         feh=feh_i)
 
         # Print progress
-        print(' ' + str(round((i+1) / len(data) * 100)) + '%')
+        if len(sids) == 1:
+            print(' 100%')
+        else:
+            print(' ' + str(round((i+1) / len(data) * 100)) + '%')
 
     # Save (tau, feh)-grid
     with h5py.File(output_h5) as h5out:

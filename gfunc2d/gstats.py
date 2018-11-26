@@ -189,8 +189,23 @@ def gfunc_age_conf(g_age, age_grid, conf_level=0.68):
 
     return age_conf
 
+  
+def age_mode_and_conf(g_age, age_grid, conf_levels=[0.68, 0.90]):
+    n = len(conf_levels)
+    age_arr = np.zeros(1+2*n)
 
-def print_age_stats(output_h5, filename):
+    age_arr[n] = gfunc_age_mode(g_age, age_grid)
+    for i in range(1, n+1):
+        try:
+            age_arr[n-i:n+i+1:2*i] = gfunc_age_conf(g_age, age_grid, conf_level=conf_levels[i-1])
+        except:
+            age_arr[:] = None
+            break
+
+    return age_arr
+
+
+def print_age_stats(output_h5, filename, smooth=True):
     '''
     Function for printing ages and confidence intervals to a text file
     based on an output hdf5 file (containing the 2D G functions).
@@ -206,29 +221,29 @@ def print_age_stats(output_h5, filename):
     filename : str
         Name of the text file with the age output.
 
-    conf_level : float
-        Confidence level as a fraction (between 0 and 1).
-        Default value is 0.68 corresponding to 1 sigma for a Gaussian.
+    smooth : bool
+        If True, smooth the G functions before calculating the ages and
+        confidence intervals.
+        Default value is True.
     '''
 
     with h5py.File(output_h5) as out:
         ages = out['grid/tau'][:]
         gf_group = out['gfuncs']
-        star_id = np.array(gf_group)
+        if len(gf_group) == 1:
+            star_id = np.array([star for star in gf_group])
+        else:
+            star_id = np.array(gf_group)
 
         n_star = len(star_id)
         age_arr = np.zeros((n_star, 5))
-
         for i, star in enumerate(star_id):
             g = gf_group[star][:]
-            g = smooth_gfunc2d(g)
+            if smooth:
+                g = smooth_gfunc2d(g)
             g = norm_gfunc(g)
             g_age = gfunc_age(g)
-            age_arr_i = age_arr[i]
-
-            age_arr_i[2] = gfunc_age_mode(g_age, ages)
-            age_arr_i[1:4:2] = gfunc_age_conf(g_age, ages)
-            age_arr_i[0:5:4] = gfunc_age_conf(g_age, ages, conf_level=0.90)
+            age_arr[i] = age_mode_and_conf(g_age, ages)
 
         # Pad identifier strings (for prettier output)
         id_len = max((10, max([len(x) for x in star_id])))

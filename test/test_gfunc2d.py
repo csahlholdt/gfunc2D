@@ -11,7 +11,7 @@ mpls.use('classic')
 import time
 
 # Isochrone grid path
-isogrid = '/Users/christian/isochrones/grids/YY_grid.h5'
+isogrid = '/Users/christian/isochrones/grids/YY/YY.h5'
 
 # Define the true parameters (indicated by '0' in the variable name):
 feh0 = -0.5  # True [Fe/H]

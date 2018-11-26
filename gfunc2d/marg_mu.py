@@ -218,3 +218,71 @@ def marginalise_mu(plx_obs, plx_sigma,
     lik_int_mu = sum(np.exp(log_lik)) * mu_step
 
     return lik_int_mu
+
+
+def marginalise_mu_simple(plx_obs, plx_sigma,
+                          mag_obs, mag_sigma, mag_abs, mu_prior, mu_prior_w):
+    '''
+    Returns the integral over mu (distance modulus) of the relative likelihood
+    function L(mu) = exp(-0.5*X2), where
+    X2 = ((plx_obs-p(mu))/plx_sigma)^2 + ((mu_obs-mu)/mag_sigma)^2
+                                       + mu_prior_w*(mu-mu_prior)^2.
+    This is a simpler and faster version of marginalise_mu. It probably only
+    works when the uncertainty on the observed magnitude is low (~0.02).
+
+    Parameters
+    ----------
+    plx_obs : float
+        Observed parallax in milliarcseconds.
+
+    plx_sigma : float
+        Uncertainty on observed parallax.
+
+    mag_obs : float
+        Observed apparent magnitude.
+
+    mag_sigma : float
+        Uncertainty on observed apparent magnitude.
+
+    mag_abs : float
+        Absolute magnitude from the isochrone (same passband as mag_obs).
+
+    mu_prior : float
+        Prior mean distance modulus.
+
+    mu_prior_w : float
+        Statistical weight of mu_prior (= sigma_mu_priot^(-2)).
+
+    Returns
+    -------
+    lik_int_mu : float
+        Integral over distance modulus of the relative likelihood function
+        L(mu).
+    '''
+
+    # Combine mu_prior and mu_obs = mag_obs - mag_abs
+    mag_w = mag_sigma**(-2)
+    w0 = mag_w + mu_prior_w
+    mu_obs = mag_obs - mag_abs
+    mu0 = (mu_prior * mu_prior_w + mu_obs * mag_w) / w0
+
+    mag_int = [mu0-5*w0**(-2), mu0+5*w0**(-2)]
+
+    if plx_obs > 0 and plx_sigma / plx_obs <= 0.1:
+        plx_int = [plx_obs-5*plx_sigma, plx_obs+5*plx_sigma]
+        mu_plx_int = [-5*np.log10(plx_int[1]/100),
+                      -5*np.log10(plx_int[0]/100)]
+        mu_min = min(mag_int[0], mu_plx_int[0])
+        mu_max = max(mag_int[1], mu_plx_int[1])
+        mu_step = (mu_max - mu_min)*0.02
+    else:
+        mu_min = mag_int[0]
+        mu_max = mag_int[1]
+        mu_step = (mag_int[1]-mag_int[0])*0.02
+
+    mu = np.arange(mu_min, mu_max, mu_step)
+    log_lik = mu_log_lik(mu, plx_obs, plx_sigma,
+                         mag_obs, mag_sigma, mag_abs, mu_prior, mu_prior_w)
+    lik_int_mu = sum(np.exp(log_lik)) * mu_step
+
+    return lik_int_mu
