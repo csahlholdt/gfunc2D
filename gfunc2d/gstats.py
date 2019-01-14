@@ -232,7 +232,7 @@ def age_mode_and_conf(g_age, age_grid, conf_levels=[0.68, 0.90]):
     return age_arr
 
 
-def print_age_stats(output_h5, filename, smooth=True):
+def print_age_stats(output_h5, filename, smooth=False):
     '''
     Function for printing ages and confidence intervals to a text file
     based on an output hdf5 file (containing the 2D G functions).
@@ -251,7 +251,9 @@ def print_age_stats(output_h5, filename, smooth=True):
     smooth : bool
         If True, smooth the G functions before calculating the ages and
         confidence intervals.
-        Default value is True.
+        Note: This only applies to 2D G functions, if the G functions in
+        output_h5 are 1D, nothing happens.
+        Default value is False.
     '''
 
     with h5py.File(output_h5) as out:
@@ -266,10 +268,14 @@ def print_age_stats(output_h5, filename, smooth=True):
         age_arr = np.zeros((n_star, 5))
         for i, star in enumerate(star_id):
             g = gf_group[star][:]
-            if smooth:
-                g = smooth_gfunc2d(g)
-            g = norm_gfunc(g)
-            g_age = gfunc_age(g)
+            gdim = g.ndim
+            if gdim == 2:
+                if smooth:
+                    g = smooth_gfunc2d(g)
+                g_age = gfunc_age(g)
+            else:
+                g_age = g
+            g_age = norm_gfunc(g_age)
             age_arr[i] = age_mode_and_conf(g_age, ages)
 
         # Pad identifier strings (for prettier output)
