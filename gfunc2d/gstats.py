@@ -322,8 +322,9 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
         the calculation.
         Default is None in which case all stars are included.
 
-    dilut : int
-        Dilution factor. If specified, only every `dilut`th age and metallicity
+    dilut : tuple of ints
+        Dilution factor. If specified, it must be a tuple of two integers, and
+        only every `dilut[0]`th age and every `dilut[1]`th metallicity
         grid point is considered. This increases performance by lowering the
         size of the problem.
         Default is None in which case all grid points are considered.
@@ -379,9 +380,9 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
 
     # Make grid more coarse (optionally, increases performance)
     if dilut is not None:
-        g2d = g2d[:, ::dilut, ::dilut]
-        tau_grid = tau_grid[::dilut]
-        feh_grid = feh_grid[::dilut]
+        g2d = g2d[:, ::dilut[0], ::dilut[1]]
+        tau_grid = tau_grid[::dilut[0]]
+        feh_grid = feh_grid[::dilut[1]]
 
     # Number of tau/feh-values and number of stars
     l = len(feh_grid)
