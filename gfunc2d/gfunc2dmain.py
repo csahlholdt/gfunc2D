@@ -210,7 +210,7 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None, margm_fast=True):
 
 def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
                 alpha=0.0, make_gplots=True, make_hrplots=False,
-                output_ages=True, margm_fast=True):
+                output_ages=True, margm_fast=True, save2d=True):
     '''
     docstring
     '''
@@ -244,6 +244,8 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
         h5out['header'].create_dataset('fitnames', data=np.string_(fitnames))
         h5out['header'].create_dataset('datetime', data=np.string_(time))
         h5out['header'].create_dataset('alpha', data=alpha)
+        h5out['header'].create_dataset('margm_fast', data=np.string_(str(margm_fast)))
+        h5out['header'].create_dataset('save2d', data=np.string_(str(save2d)))
 
     # Load stellar data
     data = np.genfromtxt(inputfile, dtype=None, names=inputnames, encoding=None)
@@ -285,7 +287,11 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
 
         # Save G-function
         with h5py.File(output_h5) as h5out:
-            h5out['gfuncs'].create_dataset(name, data=g)
+            if save2d:
+                h5out['gfuncs'].create_dataset(name, data=g)
+            else:
+                g_age = np.sum(g, axis=1)
+                h5out['gfuncs'].create_dataset(name, data=g_age)
 
         # Save plots of the G-function if make_plots
         if make_gplots:
