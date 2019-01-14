@@ -268,7 +268,7 @@ def marginalise_mu_simple(plx_obs, plx_sigma,
 
     mag_int = [mu0-5*w0**(-2), mu0+5*w0**(-2)]
 
-    if plx_sigma / plx_obs <= 0.1 and plx_obs > 0:
+    if plx_obs > 0 and plx_sigma / plx_obs <= 0.1:
         plx_int = [plx_obs-5*plx_sigma, plx_obs+5*plx_sigma]
         mu_plx_int = [-5*np.log10(plx_int[1]/100),
                       -5*np.log10(plx_int[0]/100)]
