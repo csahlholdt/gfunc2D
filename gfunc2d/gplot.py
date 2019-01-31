@@ -136,7 +136,10 @@ def hr_plot(ax, isodict, sid, hr_axes, hr_vals, hr_units, par=None,
         act_ages.append(act_afa[2])
 
     for i, iso in enumerate(isos):
-        if yunit == 'mag':
+        if yunit == 'mag' and xunit == 'mag':
+            ax.plot(iso[xax.split('-')[0]]-iso[xax.split('-')[1]], yval - iso[yax], '.', markersize=3, zorder=0,
+                    label=str(act_ages[i]) + ' Gyr')
+        elif yunit == 'mag':
             ax.plot(iso[xax], yval - iso[yax], '.', markersize=3, zorder=0,
                     label=str(act_ages[i]) + ' Gyr')
         else:
