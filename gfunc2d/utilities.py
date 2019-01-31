@@ -19,7 +19,7 @@ def is_color(color_str):
         True if the input string is a color index.
     '''
 
-    regex_match = re.fullmatch('([a-zA-Z0-9]+)-([a-zA-Z0-9]+)', color_str)
+    regex_match = re.fullmatch('([a-zA-Z0-9_]+)-([a-zA-Z0-9_]+)', color_str)
 
     if regex_match is None:
         result = False
