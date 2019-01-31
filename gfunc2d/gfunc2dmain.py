@@ -8,6 +8,7 @@ from gfunc2d.marg_mu import marginalise_mu as margm
 from gfunc2d.marg_mu import marginalise_mu_simple as margm2
 from gfunc2d.gplot import loglik_save, contour_save, hr_save
 from gfunc2d.gstats import print_age_stats
+from gfunc2d.utilities import is_color
 
 
 def gfunc2d(isogrid, fitparams, alpha, isodict=None, margm_fast=True):
@@ -305,13 +306,18 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
             hr_axes = make_hrplots
             # Find index of relevant data in input and in grid
             try:
-                hrx_data_index = inputnames.index(make_hrplots[0])
-                hry_data_index = inputnames.index(make_hrplots[1])
-                hrx_grid_index = gridparams.index(make_hrplots[0])
-                hry_grid_index = gridparams.index(make_hrplots[1])
+                hrx_data_index = inputnames.index(hr_axes[0])
+                hry_data_index = inputnames.index(hr_axes[1])
+                hry_grid_index = gridparams.index(hr_axes[1])
+                if is_color(hr_axes[0]):
+                    hrx_grid_index = gridparams.index(hr_axes[0].split('-')[0])
+                    hrx_grid_index = gridparams.index(hr_axes[0].split('-')[1])
+                else:
+                    hrx_grid_index = gridparams.index(hr_axes[0])
             except:
-                raise ValueError('Both of ' + str(make_hrplots) +\
+                raise ValueError('Both of ' + str(hr_axes) +\
                                  ' must be in inputnames and in gridparams!')
+
             # Find input metallicity. If no metallicity used, plot feh=0.
             for potential_feh in ['FeHini', 'FeHact']:
                 try:
