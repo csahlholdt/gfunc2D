@@ -275,10 +275,9 @@ def add_isotable_to_grid(datafile, gridfile, params, units, solar_Z=0.0152,
     '''
 
     data = np.loadtxt(datafile)
-
-    with h5py.File(gridfile) as Grid:
+    with h5py.File(gridfile, 'a') as Grid:
         if feh_age_filename:
-            feh, age = feh_age_from_filename(datafile)
+            feh, age = feh_age_from_filename(os.path.basename(datafile))
 
             gridpath = 'alphaFe=0.0000/' +\
                        'FeH=' + format(feh, '.4f') + '/' +\
