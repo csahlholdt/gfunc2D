@@ -224,7 +224,8 @@ def age_mode_and_conf(g_age, age_grid, conf_levels=[0.68, 0.90]):
     age_arr[n] = gfunc_age_mode(g_age, age_grid)
     for i in range(1, n+1):
         try:
-            age_arr[n-i:n+i+1:2*i] = gfunc_age_conf(g_age, age_grid, conf_level=conf_levels[i-1])
+            age_arr[n-i:n+i+1:2*i] = gfunc_age_conf(g_age, age_grid,
+                                                    conf_level=conf_levels[i-1])
         except:
             age_arr[:] = None
             break
@@ -365,20 +366,23 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
     tau_grid, feh_grid = None, None
     for gfunc_file in gfunc_files:
         with h5py.File(gfunc_file, 'r') as gfile:
+            saved_2d = gfile['header/save2d'].value.decode('ascii') == 'True'
+            if not saved_2d and case == '2D':
+                raise ValueError('Need 2D functions in output for case="2D"')
             if tau_grid is not None and feh_grid is not None:
                 tau_grid_new = gfile['grid/tau'][:]
                 feh_grid_new = gfile['grid/feh'][:]
                 if not (np.array_equal(tau_grid, tau_grid_new)\
                         and np.array_equal(feh_grid, feh_grid_new)):
                     raise ValueError('All g-functions must be defined on ' +\
-                                     'the same metallicity grid!')
+                                     'the same age/metallicity grid!')
             else:
                 tau_grid = gfile['grid/tau'][:]
                 feh_grid = gfile['grid/feh'][:]
             for starid in gfile['gfuncs']:
                 if stars is None or starid in stars:
                     gfunc = gfile['gfuncs/' + starid][:]
-                    gfunc = smooth_gfunc2d(gfunc)
+                    #gfunc = smooth_gfunc2d(gfunc)
                     gfunc = norm_gfunc(gfunc)
                     g2d.append(gfunc)
 
@@ -386,7 +390,10 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
 
     # Make grid more coarse (optionally, increases performance)
     if dilut is not None:
-        g2d = g2d[:, ::dilut[0], ::dilut[1]]
+        if saved_2d:
+            g2d = g2d[:, ::dilut[0], ::dilut[1]]
+        else:
+            g2d = g2d[:, ::dilut[0]]
         tau_grid = tau_grid[::dilut[0]]
         feh_grid = feh_grid[::dilut[1]]
 
@@ -398,7 +405,10 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
     # Define matrix with n g-functions
     # (in 2D case each g-function is flattened first)
     if case == '1D':
-        g = np.sum(g2d, axis=2)
+        if saved_2d:
+            g = np.sum(g2d, axis=2)
+        else:
+            g = g2d
         k = m
     elif case == '2D':
         k = m*l
