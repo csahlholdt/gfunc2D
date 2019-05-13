@@ -1,13 +1,14 @@
 import h5py
 import numpy as np
+import pandas as pd
 from gfunc2d.gridtools import get_isochrone, get_gridparams
 
 known_filters = ['J', 'H', 'Ks', #2MASS
                  'u', 'v', 'g', 'r', 'i' ,'z', #SkyMapper
                  'G', 'G_BPbr', 'G_BPft', 'G_RP'] #Gaia (DR2)
 
-def generate_synth_stars(isogrid, outputfile, t_bursts, ns, m_min, feh_params,
-                         IMF_alpha=2.3, rand_seed=1):
+def generate_synth_stars(isogrid, outputfile, t_bursts, ns, feh_params,
+                         IMF_alpha=2.35, rand_seed=1, extra_giants=0):
     """
     Generate synthetic sample of stars, save stellar parameters in hdf5-format.
 
@@ -28,9 +29,6 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, m_min, feh_params,
     ns : int
         Number of stars to generate.
 
-    m_min : float
-        Minimum stellar mass generated.
-
     feh_params : array
         An array giving the mean and dispersion of the metallicites of the
         synthetic stars [feh_mean, feh_dispersion].
@@ -38,12 +36,18 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, m_min, feh_params,
         N(feh_mean, feh_dispersion).
 
     IMF_alpha : float, optional
-        Exponent to use for the initial mass function when drawing masses.
-        Default is 2.3 (Salpeter IMF, probability \propto m^[-2.3]).
+        Power law exponent to use for the initial mass function.
+        Default is 2.35 (Salpeter IMF).
 
     rand_seed : int, optional
         Seed for np.random. Ensures that samples can be reproduced.
         Default value is 1.
+
+    extra_giants : float, optional
+        Option to artificially increase the number of giants in the sample.
+        A number between 0 and 1 setting the final fraction of the total sample
+        which will be forced to be giants.
+        Default is 0 in which case no extra giants are added.
     """
 
     # This initialises the random number generator to a given state so that
@@ -53,8 +57,8 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, m_min, feh_params,
     # Settings for the synthetic dataset
     single_burst = True if len(t_bursts.shape) == 1 else False
     feh_mean, feh_disp = feh_params
-    config = {'t_bursts': t_bursts, 'm_min': m_min, 'alpha': IMF_alpha,
-              'ns': ns, 'feh_mean': feh_mean, 'feh_disp': feh_disp,
+    config = {'t_bursts': t_bursts, 'IMF_alpha': IMF_alpha, 'ns': ns,
+              'feh_mean': feh_mean, 'feh_disp': feh_disp,
               'seed': rand_seed, 'gridpath': isogrid}
 
     # Arrays to store true parameters
@@ -74,11 +78,13 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, m_min, feh_params,
     params = get_gridparams(gridfile)[0]
     data = {}
     # Prepare arrays for each parameter + the age
-    for param in params + ['age']:
+    for param in params + ['age', 'phase']:
         data[param] = np.zeros(ns)
 
     iv = 0 # Number of generated stars with valid isochrone
     ne = 0 # Number of generated stars that have evolved beyond isochrones
+    # The evolutionary phase of the current star (simple dwarf or giant)
+    phase_i = 0
     while iv < ns:
         # Define true age
         if single_burst:
@@ -87,11 +93,30 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, m_min, feh_params,
             i_burst = np.random.choice(range(n_bursts), p=prob)
             age = t_bursts[i_burst, 0] +\
                   (t_bursts[i_burst, 1]-t_bursts[i_burst, 0]) * np.random.rand()
-
-        m = m_min * np.random.rand()**(-1/(IMF_alpha-1)) # True initial mass
         feh_test = np.random.normal(feh_mean, feh_disp)
+
         # Get the isochrone for [Fe/H], age
         q, afa = get_isochrone(gridfile, 0.0, feh_test, age)
+
+        # Find indices of lowest model-to-model temperature difference
+        low_inds = np.argsort(np.diff(10**q['logT']))[:5]
+        # Split between dwarf and giant at this index
+        split_ind = int(np.median(low_inds))
+
+        # Set the minimum mass depending on whether a star is forced to be
+        # a giant
+        if iv < ns*(1-extra_giants):
+            # Minimum temperature to include (setting the minimum mass also)
+            Teffmin_dwarf = 4500-500*feh_test
+            idx_dwarf = np.argmin((np.abs(10**q['logT'][:split_ind]-Teffmin_dwarf)))
+            m_min = q['Mini'][idx_dwarf]
+            phase_i = 0
+        else:
+            m_min = q['Mini'][split_ind]
+            phase_i = 1
+
+        m = m_min * np.random.rand()**(-1/(IMF_alpha-1)) # True initial mass
+
         iso_age = afa[2] # True age
         q_mass = q['Mini']
 
@@ -106,6 +131,7 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, m_min, feh_params,
             for param in params:
                 data[param][iv] = (1-h)*q[param][im] + h*q[param][ip]
             data['age'][iv] = iso_age
+            data['phase'][iv] = phase_i
 
             iv += 1
         else:
@@ -120,6 +146,8 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, m_min, feh_params,
 
     # Save the config information
     for cparam in config:
+        if config[cparam] is None:
+            config[cparam] = 'None'
         outfile.create_dataset('config/'+cparam, data=config[cparam])
 
     # Save the stellar data
