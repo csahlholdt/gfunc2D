@@ -157,7 +157,7 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, feh_params,
     outfile.close()
 
 
-def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='exp'):
+def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='SN'):
     '''
     Generate an input file for gfunc2D based on synthetic sample of stars.
 
@@ -177,10 +177,11 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='exp'):
         be saved in Kelvin, not as logarithm).
 
     plx_distribution : float, optional
-        Value of the parallax. Can also give the string 'exp' in which case the
+        Value of the parallax. Can also give the string 'SN' in which case the
         parallaxes are given an exponential distribution to mimic the density
-        of observed stars in the solar neighborhood.
-        Default value is 'exp'.
+        of observed stars in the solar neighborhood, or 'Skymapper' which
+        mimics the parallax distribution in SkyMapper data.
+        Default value is 'SN'.
     '''
 
     # Check whether observed magnitudes should be calculated
@@ -208,9 +209,11 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='exp'):
     # If parallaxes are to be fitted, the true values are assumed based on
     # the input plx_distribution
     if 'plx' in obs_params:
-        if plx_distribution == 'exp':
-            # Approximate distance distribution of stars observed by Gaia (?)
+        if plx_distribution == 'SN':
+            # Approximate distance distribution of stars in the solar neighborhood
             plx_true = np.exp(np.random.normal(0.5637, 0.8767, ns))
+        elif plx_distribution == 'Skymapper':
+            plx_true = np.exp(np.random.normal(-0.255, 0.656, ns))
         else:
             # Else a constant value (given in plx_distribution)
             plx_true = plx_distribution*np.ones(ns)
@@ -231,6 +234,13 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='exp'):
         if oparam in obs_mags:
             obs_data[oparam] = app_mags_true[oparam] + \
                                np.random.normal(0, obs_params[oparam], ns)
+        elif oparam == 'plx' and plx_distribution == 'Skymapper':
+            plx_rel_err_interval = np.arange(0.02, 0.21, 0.01)
+            plx_rel_err_prob = np.exp(-14*plx_rel_err_interval)
+            plx_rel_err_prob = plx_rel_err_prob / np.sum(plx_rel_err_prob)
+            plx_rel_err = np.random.choice(plx_rel_err_interval, ns, p=plx_rel_err_prob)
+            obs_data[oparam] = true_data[oparam] + \
+                               np.random.normal(0, true_data[oparam]*plx_rel_err, ns)
         else:
             obs_data[oparam] = true_data[oparam] + \
                                np.random.normal(0, obs_params[oparam], ns)
@@ -238,7 +248,11 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='exp'):
     # Use pandas to organize the data and print it to a text file
     pd_data = pd.DataFrame.from_dict(obs_data)
     for i, column in enumerate(list(pd_data)[::-1]):
-        pd_data.insert(len(obs_data)-i, column+'_unc',
-                       obs_params[column]*np.ones(ns))
+        if column == 'plx' and plx_distribution == 'Skymapper':
+            pd_data.insert(len(obs_data)-i, column+'_unc',
+                           true_data[column]*plx_rel_err)
+        else:
+            pd_data.insert(len(obs_data)-i, column+'_unc',
+                           obs_params[column]*np.ones(ns))
     pd_data.to_csv(outputfile, index_label='#sid', sep='\t',
                    float_format='%10.4f')
