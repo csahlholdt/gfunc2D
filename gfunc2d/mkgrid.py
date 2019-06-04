@@ -275,10 +275,9 @@ def add_isotable_to_grid(datafile, gridfile, params, units, solar_Z=0.0152,
     '''
 
     data = np.loadtxt(datafile)
-
-    with h5py.File(gridfile) as Grid:
+    with h5py.File(gridfile, 'a') as Grid:
         if feh_age_filename:
-            feh, age = feh_age_from_filename(datafile)
+            feh, age = feh_age_from_filename(os.path.basename(datafile))
 
             gridpath = 'alphaFe=0.0000/' +\
                        'FeH=' + format(feh, '.4f') + '/' +\
@@ -368,3 +367,44 @@ def add_isochrone_to_grid(data_array, h5py_grid, gridpath, params, units,
             else:
                 h5py_grid[gname] = data_array[:, ind+2]
                 h5py_grid[gname].attrs.create('unit', np.string_(units[ind]))
+
+
+def append_asteroseismology(gridfile, solar_T=5777):
+    '''
+    Append asteroseismic parameters (dnu, numax) based on scaling relations to
+    an existing grid.
+
+    Parameters
+    ----------
+    gridfile : str
+        Name of the isochrone grid file (including the path).
+        If it does not exist it will be created.
+
+    solar_T : float, optional
+        Solar effective temperature (in Kelvin) to use in the scaling relations.
+        Default value is 5777.
+    '''
+
+    grid = h5py.File(gridfile)
+    for a in list(grid.keys()):
+        for f in list(grid[a].keys()):
+            for ag in list(grid[a+'/'+f].keys()):
+                path = a+'/'+f+'/'+ag+'/'
+                logL = grid[path+'logL'][:]
+                logT = grid[path+'logT'][:]
+                Mact = grid[path+'Mact'][:]
+                R = 10**(logL/2 - 2*logT + 2*np.log10(solar_T))
+
+                # Scaling relations
+                dnu = Mact**(1/2)*R**(-3/2)
+                numax = Mact*R**(-2)*(10**logT/solar_T)**(-1/2)
+
+                # Add to grid
+                grid[path+'dnu'] = dnu
+                grid[path+'dnu'].attrs.create('unit', np.string_('muHz (solar)'))
+                grid[path+'numax'] = numax
+                grid[path+'numax'].attrs.create('unit', np.string_('muHz (solar)'))
+
+    grid.close()
+
+

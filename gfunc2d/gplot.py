@@ -153,6 +153,11 @@ def hr_plot(ax, isodict, sid, hr_axes, hr_vals, hr_units, par=None,
         ax.set_xlim(xlim_low, xlim_high)
         ax.invert_xaxis()
         ax.set_xlabel(r'$\log(T_{\mathrm{eff}}[\mathrm{K}])$')
+    elif xunit == 'mag':
+        xlim_low = xval_plot-1.5
+        xlim_high = xval_plot+1.5
+        ax.set_xlim(xlim_low, xlim_high)
+        ax.set_xlabel(xax)
     else:
         ax.set_xlabel(xax)
     if yax == 'logg':
