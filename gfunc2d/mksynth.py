@@ -232,8 +232,12 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='SN'):
     # Make observed data assuming Gaussian uncertainties
     for oparam in obs_data:
         if oparam in obs_mags:
-            obs_data[oparam] = app_mags_true[oparam] + \
-                               np.random.normal(0, obs_params[oparam], ns)
+            if obs_params[oparam][1] == 'abs':
+                obs_data[oparam] = app_mags_true[oparam] + \
+                                   np.random.normal(0, obs_params[oparam][0], ns)
+            else:
+                obs_data[oparam] = app_mags_true[oparam] + \
+                                   np.random.normal(0, app_mags_true[oparam]*obs_params[oparam][0], ns)
         elif oparam == 'plx' and plx_distribution == 'Skymapper':
             plx_rel_err_interval = np.arange(0.02, 0.21, 0.01)
             plx_rel_err_prob = np.exp(-14*plx_rel_err_interval)
@@ -242,8 +246,13 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='SN'):
             obs_data[oparam] = true_data[oparam] + \
                                np.random.normal(0, true_data[oparam]*plx_rel_err, ns)
         else:
-            obs_data[oparam] = true_data[oparam] + \
-                               np.random.normal(0, obs_params[oparam], ns)
+            if obs_params[oparam][1] == 'abs':
+                obs_data[oparam] = true_data[oparam] + \
+                                   np.random.normal(0, obs_params[oparam][0], ns)
+            else:
+                obs_data[oparam] = true_data[oparam] + \
+                                   np.random.normal(0, true_data[oparam]*obs_params[oparam][0], ns)
+
 
     # Use pandas to organize the data and print it to a text file
     pd_data = pd.DataFrame.from_dict(obs_data)
@@ -252,7 +261,11 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='SN'):
             pd_data.insert(len(obs_data)-i, column+'_unc',
                            true_data[column]*plx_rel_err)
         else:
-            pd_data.insert(len(obs_data)-i, column+'_unc',
-                           obs_params[column]*np.ones(ns))
+            if obs_params[column][1] == 'abs':
+                pd_data.insert(len(obs_data)-i, column+'_unc',
+                               obs_params[column][0]*np.ones(ns))
+            else:
+                pd_data.insert(len(obs_data)-i, column+'_unc',
+                               obs_params[column][0]*true_data[column])
     pd_data.to_csv(outputfile, index_label='#sid', sep='\t',
                    float_format='%10.4f')
