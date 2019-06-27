@@ -99,9 +99,9 @@ def gfunc_age(g, norm=True, norm_method='maxone'):
     return g_age
 
 
-def gfunc_age_mode(g_age, age_grid):
+def gfunc_age_mode(g_age, age_grid, use_mean=False):
     '''
-    Get the mode of a 1D age G function.
+    Get the mode or mean of a 1D age G function.
 
     Parameters
     ----------
@@ -112,14 +112,21 @@ def gfunc_age_mode(g_age, age_grid):
         The age values on which `g_age` is defined.
         Must be same length as g_age.
 
+    use_mean : bool, optional
+        Use mean instead of mode if True.
+        Default is False.
+
     Returns
     -------
-    age_mode : array
-        Mode of the 1D age G function.
+    age_mode : float
+        Mode (or mean) of the 1D age G function.
     '''
 
-    ind = np.argmax(g_age)
-    age_mode = age_grid[ind]
+    if use_mean:
+        age_mode = np.average(age_grid, weights=g_age)
+    else:
+        ind = np.argmax(g_age)
+        age_mode = age_grid[ind]
 
     return age_mode
 
@@ -128,7 +135,7 @@ def conf_glim(conf_level):
     '''
     Get the limiting value of a 1D age G function corresponding
     to a certain age confidence level.
-    This is calculating assuming that the G function can be approximated
+    This is calculated assuming that the G function can be approximated
     by a Gaussian.
 
     Parameters
@@ -190,10 +197,11 @@ def gfunc_age_conf(g_age, age_grid, conf_level=0.68):
     return age_conf
 
   
-def age_mode_and_conf(g_age, age_grid, conf_levels=[0.68, 0.90]):
+def age_mode_and_conf(g_age, age_grid, conf_levels=[0.68, 0.90],
+                      use_mean=False):
     '''
-    Get the mode and confidence interval for a 1D age G function with
-    a number of confidence intervals.
+    Get the mode (or mean) and confidence interval for a 1D age G function
+    with a number of confidence intervals.
 
     Parameters
     ----------
@@ -208,12 +216,16 @@ def age_mode_and_conf(g_age, age_grid, conf_levels=[0.68, 0.90]):
         Confidence levels as fractions (between 0 and 1).
         Default value is [0.68, 0.90].
 
+    use_mean : bool, optional
+        Use mean instead of mode if True.
+        Default is False.
+
     Returns
     -------
-    age_err : list
+    age_arr : array
         List of length 1+2*len(`conf_levels`). The middle entry is
-        the age mode, and the surrounding values are the confidence
-        interval.
+        the age mode (or mean), and the surrounding values are the
+        confidence interval.
         For example with conf_levels=[0.68, 0.90] it returns the list
         [5%, 16%, mode, 84%, 95%].
     '''
@@ -221,7 +233,7 @@ def age_mode_and_conf(g_age, age_grid, conf_levels=[0.68, 0.90]):
     n = len(conf_levels)
     age_arr = np.zeros(1+2*n)
 
-    age_arr[n] = gfunc_age_mode(g_age, age_grid)
+    age_arr[n] = gfunc_age_mode(g_age, age_grid, use_mean)
     for i in range(1, n+1):
         try:
             age_arr[n-i:n+i+1:2*i] = gfunc_age_conf(g_age, age_grid,
@@ -230,10 +242,20 @@ def age_mode_and_conf(g_age, age_grid, conf_levels=[0.68, 0.90]):
             age_arr[:] = None
             break
 
+    # Ensure that the mean value is inside the confidence limits
+    # (this is always the case for the mode)
+    if use_mean:
+        for i in range(0, n):
+            if age_arr[i] > age_arr[n]:
+                age_arr[i] = age_arr[n]
+        for i in range(n+1, 2*n+1):
+            if age_arr[i] < age_arr[n]:
+                age_arr[i] = age_arr[n]
+
     return age_arr
 
 
-def print_age_stats(output_h5, filename, smooth=False):
+def print_age_stats(output_h5, filename, smooth=False, use_mean=False):
     '''
     Function for printing ages and confidence intervals to a text file
     based on an output hdf5 file (containing the 2D G functions).
@@ -255,6 +277,10 @@ def print_age_stats(output_h5, filename, smooth=False):
         Note: This only applies to 2D G functions, if the G functions in
         output_h5 are 1D, nothing happens.
         Default value is False.
+
+    use_mean : bool, optional
+        Use mean of G function instead of mode if True.
+        Default is False.
     '''
 
     with h5py.File(output_h5) as out:
@@ -264,6 +290,8 @@ def print_age_stats(output_h5, filename, smooth=False):
             star_id = np.array([star for star in gf_group])
         else:
             star_id = np.array(gf_group)
+            star_id_sort = np.argsort([int(x) for x in star_id])
+            star_id = star_id[star_id_sort]
 
         n_star = len(star_id)
         age_arr = np.zeros((n_star, 5))
@@ -277,7 +305,7 @@ def print_age_stats(output_h5, filename, smooth=False):
             else:
                 g_age = g
             g_age = norm_gfunc(g_age)
-            age_arr[i] = age_mode_and_conf(g_age, ages)
+            age_arr[i] = age_mode_and_conf(g_age, ages, use_mean=use_mean)
 
         # Pad identifier strings (for prettier output)
         id_len = max((10, max([len(x) for x in star_id])))
@@ -364,7 +392,12 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
     # Load data
     g2d = []
     tau_grid, feh_grid = None, None
-    for gfunc_file in gfunc_files:
+    for i, gfunc_file in enumerate(gfunc_files):
+        # Allow for stars to be a list of lists (one for each gfunc-file)
+        if stars is not None and isinstance(stars[0], list):
+            stars_i = stars[i]
+        elif stars is not None:
+            stars_i = stars
         with h5py.File(gfunc_file, 'r') as gfile:
             saved_2d = gfile['header/save2d'].value.decode('ascii') == 'True'
             if not saved_2d and case == '2D':
@@ -380,7 +413,7 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
                 tau_grid = gfile['grid/tau'][:]
                 feh_grid = gfile['grid/feh'][:]
             for starid in gfile['gfuncs']:
-                if stars is None or starid in stars:
+                if stars is None or starid in stars_i:
                     gfunc = gfile['gfuncs/' + starid][:]
                     #gfunc = smooth_gfunc2d(gfunc)
                     gfunc = norm_gfunc(gfunc)

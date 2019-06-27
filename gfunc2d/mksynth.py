@@ -210,9 +210,10 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='SN'):
     # the input plx_distribution
     if 'plx' in obs_params:
         if plx_distribution == 'SN':
-            # Approximate distance distribution of stars in the solar neighborhood
+            # Approximate parallax distribution of stars in the solar neighborhood
             plx_true = np.exp(np.random.normal(0.5637, 0.8767, ns))
         elif plx_distribution == 'Skymapper':
+            # Approximate parallax distribution of stars in the SkyMapper survey
             plx_true = np.exp(np.random.normal(-0.255, 0.656, ns))
         else:
             # Else a constant value (given in plx_distribution)
