@@ -313,8 +313,6 @@ def SM_parallax(J_abs):
     plx_params = plx_dists[plx_index-1]
 
     plx = 0
-    print(10**(plx_params[2]))
-
     while plx < 10**(plx_params[2]):
         plx = 10**(np.random.normal(plx_params[0], plx_params[1]))
 
@@ -349,7 +347,6 @@ def SM_parallax_err(G_app):
     plxerr_params = plx_errs[plxerr_index-1]
 
     plxerr = 0
-
     while plxerr < 10**(plxerr_params[2]):
         plxerr = 10**(np.random.normal(plxerr_params[0], plxerr_params[1]))
 
