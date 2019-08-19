@@ -36,7 +36,7 @@ def smooth_gfunc2d(g):
     return g2
 
 
-def norm_gfunc(g, method='maxone'):
+def norm_gfunc(g, method='sumone'):
     '''
     Normalise G function.
 
@@ -47,7 +47,7 @@ def norm_gfunc(g, method='maxone'):
 
     method : str, optional
         Normalisation method.
-        Default is 'maxone' which scales the maximum value to unity.
+        Default is 'sumone' which scales the sum to unity.
 
     Returns
     -------
@@ -55,13 +55,18 @@ def norm_gfunc(g, method='maxone'):
         Normalised G function.
     '''
 
+    gmax = np.amax(g)
     if method == 'maxone':
-        gmax = np.amax(g)
         if gmax == 0:
             gnorm = np.ones_like(g)
         else:
             gnorm = g / np.amax(g)
-#    elif method == 'other_method':
+    elif method == 'sumone':
+        if gmax == 0:
+            gnorm = np.ones_like(g) / np.size(g)
+        else:
+            gnorm = g / np.sum(g)
+#    elif method == 'some other method':
 #        gnorm = ...
     else:
         raise ValueError('Unknown normalization method')
@@ -69,7 +74,7 @@ def norm_gfunc(g, method='maxone'):
     return gnorm
 
 
-def gfunc_age(g, norm=True, norm_method='maxone'):
+def gfunc_age(g, norm=True, norm_method='sumone'):
     '''
     Get the 1D age G function from the 2D G function.
 
@@ -84,7 +89,7 @@ def gfunc_age(g, norm=True, norm_method='maxone'):
 
     norm_method : str, optional
         Normalisation method to use if `norm=True`.
-        Default is 'maxone'.
+        Default is 'sumone'.
 
     Returns
     -------
