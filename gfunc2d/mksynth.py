@@ -157,7 +157,8 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, feh_params,
     outfile.close()
 
 
-def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution=1):
+def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution=1,
+                   perturb_true_values=True):
     '''
     Generate an input file for gfunc2D based on synthetic sample of stars.
 
@@ -237,24 +238,29 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution=1):
     for oparam in obs_data:
         if oparam in obs_mags:
             if obs_params[oparam][1] == 'abs':
-                obs_data[oparam] = app_mags_true[oparam] + \
-                                   np.random.normal(0, obs_params[oparam][0], ns)
+                obs_data[oparam] = app_mags_true[oparam]
+                if perturb_true_values:
+                    obs_data[oparam] += np.random.normal(0, obs_params[oparam][0], ns)
             else:
-                obs_data[oparam] = app_mags_true[oparam] + \
-                                   np.random.normal(0, app_mags_true[oparam]*obs_params[oparam][0], ns)
+                obs_data[oparam] = app_mags_true[oparam]
+                if perturb_true_values:
+                    obs_data[oparam] += np.random.normal(0, app_mags_true[oparam]*obs_params[oparam][0], ns)
         elif oparam == 'plx' and obs_params[oparam][1] == 'Gaia':
             plx_true_err = np.zeros(ns)
             for i in range(ns):
                 plx_true_err[i] = SM_parallax_err(G_app_mag_true[i])
-            obs_data[oparam] = true_data[oparam] + \
-                               np.random.normal(0, plx_true_err)
+            obs_data[oparam] = true_data[oparam]
+            if perturb_true_values:
+                obs_data[oparam] += np.random.normal(0, plx_true_err)
         else:
             if obs_params[oparam][1] == 'abs':
-                obs_data[oparam] = true_data[oparam] + \
-                                   np.random.normal(0, obs_params[oparam][0], ns)
+                obs_data[oparam] = true_data[oparam]
+                if perturb_true_values:
+                    obs_data[oparam] += np.random.normal(0, obs_params[oparam][0], ns)
             else:
-                obs_data[oparam] = true_data[oparam] + \
-                                   np.random.normal(0, true_data[oparam]*obs_params[oparam][0], ns)
+                obs_data[oparam] = true_data[oparam]
+                if perturb_true_values:
+                    obs_data[oparam] += np.random.normal(0, true_data[oparam]*obs_params[oparam][0], ns)
 
     # Use pandas to organize the data and print it to a text file
     pd_data = pd.DataFrame.from_dict(obs_data)
