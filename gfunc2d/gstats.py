@@ -36,7 +36,7 @@ def smooth_gfunc2d(g):
     return g2
 
 
-def norm_gfunc(g, method='sumone'):
+def norm_gfunc(g, method='maxone'):
     '''
     Normalise G function.
 
@@ -47,7 +47,7 @@ def norm_gfunc(g, method='sumone'):
 
     method : str, optional
         Normalisation method.
-        Default is 'sumone' which scales the sum to unity.
+        Default is 'maxone' which scales the max value to one.
 
     Returns
     -------
@@ -74,7 +74,7 @@ def norm_gfunc(g, method='sumone'):
     return gnorm
 
 
-def gfunc_age(g, norm=True, norm_method='sumone'):
+def gfunc_age(g, norm=True, norm_method='maxone'):
     '''
     Get the 1D age G function from the 2D G function.
 
@@ -89,7 +89,7 @@ def gfunc_age(g, norm=True, norm_method='sumone'):
 
     norm_method : str, optional
         Normalisation method to use if `norm=True`.
-        Default is 'sumone'.
+        Default is 'maxone'.
 
     Returns
     -------
@@ -264,7 +264,7 @@ def print_age_stats(output_h5, filename, smooth=False, use_mean=False):
     '''
     Function for printing ages and confidence intervals to a text file
     based on an output hdf5 file (containing the 2D G functions).
-    The age statistics which are printet are the mode of the G function as
+    The age statistics which are printed are the mode of the G function as
     well as the 68 and 90% confidence intervals (this can be changed in
     the source code).
 
