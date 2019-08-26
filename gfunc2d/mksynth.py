@@ -199,10 +199,13 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution=1,
         try:
             if oparam == 'logT':
                 true_data[oparam] = 10**(synth_data['data/'+oparam][:])
+            elif '-' in oparam:
+                (col1, col2) = oparam.split('-')
+                true_data[oparam] = synth_data['data/'+col1][:]-synth_data['data/'+col2][:]
             else:
                 true_data[oparam] = synth_data['data/'+oparam][:]
         except:
-            raise KeyError('Parameter ' + oparam + ' not in synthetic data...')
+            raise KeyError('Problem with parameter ' + oparam + ' (not in synthetic data?)')
 
     # Whether or not these magnitudes are to be observed, they are loaded
     # to be used when defining parallax uncertainties
