@@ -324,7 +324,7 @@ def print_age_stats(output_h5, filename, smooth=False, use_mean=False):
 
 
 def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
-                  max_iter=10, min_tol=1.e-20):
+                  max_iter=10, min_tol=1.e-20, smooth_freq=None):
     '''
     Function for estimating the sample age metallicity distribution (samd) OR
     simply the sample age distribution (sad).
@@ -342,11 +342,11 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
         If more than one, the output in the different files MUST be defined on
         the same age/metallicity grids.
 
-    case : str
+    case : str, optional
         Determines whether the 2D (samd) or 1D (sad) is calculated.
         '2D' for samd and '1D' for sad. Default is '1D'.
 
-    betas : tuple
+    betas : tuple, optional
         Beta is a regularization parameter which regulates how strongly the
         solution favors a flat (constant) function (0 is most strict, higher
         numbers are less strict).
@@ -357,25 +357,30 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
         to allow a gentle convergence towards a sensible solution.
         Default is None in which case the values (0.01, 0.01, 1.00) are used.
 
-    stars : list of str
+    stars : list of str, optional
         List of star identifiers (as used in the gfunc_files) to be included in
         the calculation.
         Default is None in which case all stars are included.
 
-    dilut : tuple of ints
+    dilut : tuple of ints, optional
         Dilution factor. If specified, it must be a tuple of two integers, and
         only every `dilut[0]`th age and every `dilut[1]`th metallicity
         grid point is considered. This increases performance by lowering the
         size of the problem.
         Default is None in which case all grid points are considered.
 
-    max_iter : int
+    max_iter : int, optional
         Maximum number of Newton-Raphson iterations per beta.
         Default value is 10
 
-    min_tol : float
-        Minimum value that the samd/sad must reach in order to end the
-        calculation.
+    min_tol : float, optional
+        Minimum value that the samd/sad is allowed to reach.
+        Default value is 1e-20.
+
+    smooth_freq : int, optional
+        At every smooth_freq'th value of beta, the function is smoothed by a
+        three point moving mean filter. Only implemented in the 1D case.
+        Default is None in which case no smoothing is applied.
 
     Returns
     -------
@@ -532,12 +537,21 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
                 phi_test = phi + f * Delta_phi
             phi = phi_test
             lamda += f * Delta_lambda
-            if min(phi) < min_tol or beta >= beta_max:
+
+            phi[phi < min_tol] = min_tol
+            if beta >= beta_max:
                 finished = True
                 break
 
         # re-normalise to avoid exponential growth of rounding errors
         phi /= np.dot(w, phi)
+        # apply three point moving average filter
+        if case == '1D' and smooth_freq is not None:
+            if beta == dbeta or beta%(smooth_freq*dbeta) < dbeta:
+                phi_smooth = phi.copy()
+                for i in range(1, len(phi)-1):
+                    phi_smooth[i] = np.mean(phi[i-1:i+2])
+                phi = phi_smooth
         if case == '1D':
             samd.append(phi)
         elif case == '2D':
