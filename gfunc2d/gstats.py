@@ -569,3 +569,235 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
         beta += dbeta
 
     return samd, Q, tau_grid, feh_grid
+
+
+def estimate_sad_smooth(gfunc_files, betas=None, stars=None, dilut=None,
+                        max_iter=10, min_tol=1.e-20, alpha=10):
+    '''
+    Function for estimating the sample age metallicity distribution (samd) OR
+    simply the sample age distribution (sad).
+
+    This uses a Newton-Raphson minimisation to find the function phi which
+    maximises the likelihood L(phi) = sum(L_i(phi)), where
+        L_i(phi) = int(G_i(theta)*phi(theta)) ,
+    and G_i are the G functions and theta is either the age (in the 1D case)
+    or both the age and metallicity (in the 2D) case.
+
+    Parameters
+    ----------
+    gfunc_files : list
+        List of paths to the output hdf5 files containing the 2D (or 1D) G
+        functions. If more than one, the output in the different files MUST be
+        defined on the same age/metallicity grids.
+
+    betas : tuple, optional
+        Beta is a regularization parameter which regulates how strongly the
+        solution favors a flat (constant) function (0 is most strict, higher
+        numbers are less strict).
+        betas should be a tuple containing the three floats beta, dbeta, and
+        beta_max. beta is the initial value, dbeta is the step, and beta_max is
+        the maximum value which, when hit, stops the computation.
+        beta (the initial value) should be close to 0 and dbeta not too large
+        to allow a gentle convergence towards the global minimum.
+        Default is None in which case the values (0.01, 0.01, 1.00) are used.
+
+    stars : list of str, optional
+        List of star identifiers (as used in the gfunc_files) to be included in
+        the calculation.
+        Default is None in which case all stars are included.
+
+    dilut : tuple of ints, optional
+        Dilution factor. If specified, it must be a tuple of two integers, and
+        only every `dilut[0]`th age and every `dilut[1]`th metallicity
+        grid point is considered. This increases performance by lowering the
+        size of the problem.
+        Default is None in which case all grid points are considered.
+
+    max_iter : int, optional
+        Maximum number of Newton-Raphson iterations per beta.
+        Default value is 10
+
+    min_tol : float, optional
+        Minimum value that the samd/sad is allowed to reach.
+        Default value is 1e-20.
+
+    alpha : int, optional
+        Value of the smoothing parameter. Higher values will favor solutions
+        with smaller variations (first derivatives).
+        Default value is 10.
+
+    Returns
+    -------
+    samd : list
+        List of samd/sad with one entry for each value of beta.
+
+    Q : list
+        List of same length as `samd`. Each entry is a list giving the values of
+        beta, the negative log-likelihood of the solution, and its entropy.
+
+    tau_grid : array
+        Age grid on which the input G functions were defined (taken from one of
+        the `gfunc_files`).
+
+    feh_grid : array
+        Metallicity grid on which the input G functions were defined (taken
+        from one of the `gfunc_files`).
+    '''
+    # Load data
+    g2d = []
+    tau_grid, feh_grid = None, None
+    for i, gfunc_file in enumerate(gfunc_files):
+        # Allow for stars to be a list of lists (one for each gfunc-file)
+        if stars is not None and isinstance(stars[0], list):
+            stars_i = stars[i]
+        elif stars is not None:
+            stars_i = stars
+        with h5py.File(gfunc_file, 'r') as gfile:
+            saved_2d = gfile['header/save2d'].value.decode('ascii') == 'True'
+            if tau_grid is not None and feh_grid is not None:
+                tau_grid_new = gfile['grid/tau'][:]
+                feh_grid_new = gfile['grid/feh'][:]
+                if not (np.array_equal(tau_grid, tau_grid_new)\
+                        and np.array_equal(feh_grid, feh_grid_new)):
+                    raise ValueError('All g-functions must be defined on ' +\
+                                     'the same age/metallicity grid!')
+            else:
+                tau_grid = gfile['grid/tau'][:]
+                feh_grid = gfile['grid/feh'][:]
+            for starid in gfile['gfuncs']:
+                if stars is None or starid in stars_i:
+                    gfunc = gfile['gfuncs/' + starid][:]
+                    #gfunc = smooth_gfunc2d(gfunc)
+                    gfunc = norm_gfunc(gfunc)
+                    g2d.append(gfunc)
+
+    g2d = np.array(g2d)
+
+    # Make grid more coarse (optionally, increases performance)
+    if dilut is not None:
+        if saved_2d:
+            g2d = g2d[:, ::dilut[0], ::dilut[1]]
+        else:
+            g2d = g2d[:, ::dilut[0]]
+        tau_grid = tau_grid[::dilut[0]]
+        feh_grid = feh_grid[::dilut[1]]
+
+    # Number of tau-values and number of stars
+    m = len(tau_grid)
+    n = g2d.shape[0]
+
+    # Define matrix with n g-functions
+    if saved_2d:
+        g = np.sum(g2d, axis=2)
+    else:
+        g = g2d
+
+    #------------------------------------------------
+    # Set up for estimating age distribution phi(1:m)
+    #------------------------------------------------
+
+    # weights for integrals over theta
+    w = np.ones(m) / m
+
+    # constant prior, normalized
+    Phi = np.ones(m)
+    Phi /= np.dot(w, Phi)
+
+    # initial guess for phi and lambda
+    phi = Phi
+    lamda = -1 # this gives r_j = 0 for beta = 0
+
+    # initial beta and step
+    if betas is None:
+        beta, dbeta, beta_max = 0.01, 0.01, 1.00
+    else:
+        beta, dbeta, beta_max = betas
+
+    # Gw = G matrix, with each column multiplied by w(j)
+    gw = g * w
+
+    # Derivative matrix
+    T = np.diag(np.ones(m)*(-1.5))
+    T += np.diag(np.ones(m-1)*2, k=1)
+    T += np.diag(np.ones(m-2)*(-0.5), k=2)
+    T[-2, -1] = 0
+    T[-2, -4:-1] = T[-1, -3:] = np.array([0.5, -2, 1.5])
+
+    # Tw = T matrix, with each column multiplied by w(j)
+    Tw = T * w
+
+    # list to hold beta, L, E
+    Q = []
+    # list to hold phi (the age/age-metallicity distribution)
+    samd = []
+
+    # Perform Newton-Raphson minimisation
+    finished = False
+    while not finished:
+        for iterr in range(max_iter):
+            u = np.dot(gw, phi)
+            v = np.dot(Tw, phi)
+
+            gwu = gw / u[:, np.newaxis]
+            Twv = Tw * v[:, np.newaxis]
+
+            # residuals
+            r = w * (1 + np.log(phi/Phi)) - beta * np.sum(gwu, 0) \
+                + 2*alpha * np.sum(Twv, 0) + lamda * w
+            R = np.dot(w, phi) - 1
+
+            # Hessian
+            H = np.diag(w / phi) + beta * np.dot(gwu.T, gwu) \
+                + 2*alpha * np.dot(Tw.T, Tw)
+
+            # full matrix
+            M = np.zeros((m+1, m+1))
+            M[:m, :m] = H
+            M[-1, :m] = M[:m, -1] = w
+            h = np.append(-r, -R)
+
+            s = np.append(1/np.sqrt(np.diag(H)), 1.)
+            S = np.diag(s)
+            M1 = np.dot(np.dot(S, M), S)
+            h1 = np.dot(S, h)
+
+            con = np.linalg.cond(M1)
+            if con is np.inf:
+                finished = True
+                break
+
+            Delta1 = np.linalg.solve(M1, h1)
+            Delta = np.dot(S, Delta1)
+
+            Delta_phi = Delta[:m]
+            Delta_lambda = Delta[-1]
+
+            f = 1.
+            phi_test = phi + f * Delta_phi
+            while min(phi_test) < 0:
+                f *= 0.5
+                phi_test = phi + f * Delta_phi
+            phi = phi_test
+            lamda += f * Delta_lambda
+
+            phi[phi < min_tol] = min_tol
+            if beta >= beta_max:
+                finished = True
+                break
+
+        # re-normalise to avoid exponential growth of rounding errors
+        phi /= np.dot(w, phi)
+        samd.append(phi)
+
+        # entropy
+        E = np.sum(w * phi * np.log(phi / Phi))
+
+        # total negative log-likelihood
+        L = -np.sum(np.log(u))
+
+        # add to list Q
+        Q.append([beta, L, E])
+
+        beta += dbeta
+
+    return samd, Q, tau_grid, feh_grid
