@@ -664,12 +664,20 @@ def estimate_sad_smooth(gfunc_files, betas=None, stars=None, dilut=None,
             else:
                 tau_grid = gfile['grid/tau'][:]
                 feh_grid = gfile['grid/feh'][:]
-            for starid in gfile['gfuncs']:
-                if stars is None or starid in stars_i:
+            if stars is None:
+                for starid in gfile['gfuncs']:
                     gfunc = gfile['gfuncs/' + starid][:]
-                    #gfunc = smooth_gfunc2d(gfunc)
                     gfunc = norm_gfunc(gfunc)
                     g2d.append(gfunc)
+            else:
+                for starid in stars_i:
+                    try:
+                        gfunc = gfile['gfuncs/' + starid][:]
+                        gfunc = norm_gfunc(gfunc)
+                        g2d.append(gfunc)
+                    except:
+                        continue
+
 
     g2d = np.array(g2d)
 
