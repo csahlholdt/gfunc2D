@@ -751,12 +751,12 @@ def estimate_sad_smooth(gfunc_files, betas=None, stars=None, dilut=None,
 
             # residuals
             r = w * (1 + np.log(phi/Phi)) - beta * np.sum(gwu, 0) \
-                + 2*alpha * np.sum(Twv, 0) + lamda * w
+                + 2*alpha*beta * np.sum(Twv, 0) + lamda * w
             R = np.dot(w, phi) - 1
 
             # Hessian
             H = np.diag(w / phi) + beta * np.dot(gwu.T, gwu) \
-                + 2*alpha * np.dot(Tw.T, Tw)
+                + 2*alpha*beta * np.dot(Tw.T, Tw)
 
             # full matrix
             M = np.zeros((m+1, m+1))
