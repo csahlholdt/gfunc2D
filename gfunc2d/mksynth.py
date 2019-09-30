@@ -8,7 +8,8 @@ known_filters = ['J', 'H', 'Ks', #2MASS
                  'G', 'G_BPbr', 'G_BPft', 'G_RP'] #Gaia (DR2)
 
 def generate_synth_stars(isogrid, outputfile, t_bursts, ns, feh_params,
-                         IMF_alpha=2.35, rand_seed=1, extra_giants=0):
+                         IMF_alpha=2.35, rand_seed=1, extra_giants=0,
+                         force_SFR=False):
     """
     Generate synthetic sample of stars, save stellar parameters in hdf5-format.
 
@@ -97,6 +98,7 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, feh_params,
 
         # Get the isochrone for [Fe/H], age
         q, afa = get_isochrone(gridfile, 0.0, feh_test, age)
+        iso_age = afa[2] # True age
 
         # Find indices of lowest model-to-model temperature difference
         low_inds = np.argsort(np.diff(10**q['logT']))[:5]
@@ -116,9 +118,10 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, feh_params,
             phase_i = 1
 
         m = m_min * np.random.rand()**(-1/(IMF_alpha-1)) # True initial mass
-
-        iso_age = afa[2] # True age
         q_mass = q['Mini']
+        if force_SFR:
+            while m >= q_mass[-1]: # the mass is too large
+                m = m_min * np.random.rand()**(-1/(IMF_alpha-1)) # try again
 
         # If initial mass is in the valid range for the age
         if m < q_mass[-1]:
@@ -240,7 +243,14 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution=1,
     # Make observed data assuming Gaussian uncertainties
     for oparam in obs_data:
         if oparam in obs_mags:
-            if obs_params[oparam][1] == 'abs':
+            if oparam == 'Ks' and obs_params[oparam][1] == 'mag':
+                Ks_err = np.zeros(ns)
+                for i in range(ns):
+                    Ks_err[i] = K_mag_err(app_mags_true[oparam][i])
+                obs_data[oparam] = app_mags_true[oparam]
+                if perturb_true_values:
+                    obs_data[oparam] += np.random.normal(0, Ks_err)
+            elif obs_params[oparam][1] == 'abs':
                 obs_data[oparam] = app_mags_true[oparam]
                 if perturb_true_values:
                     obs_data[oparam] += np.random.normal(0, obs_params[oparam][0], ns)
@@ -268,7 +278,10 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution=1,
     # Use pandas to organize the data and print it to a text file
     pd_data = pd.DataFrame.from_dict(obs_data)
     for i, column in enumerate(list(pd_data)[::-1]):
-        if column == 'plx' and obs_params[oparam][1] == 'Gaia':
+        if column == 'Ks' and obs_params[column][1] == 'mag':
+            pd_data.insert(len(obs_data)-i, column+'_unc',
+                           Ks_err)
+        elif column == 'plx' and obs_params[column][1] == 'Gaia':
             pd_data.insert(len(obs_data)-i, column+'_unc',
                            plx_true_err)
         else:
@@ -360,3 +373,35 @@ def SM_parallax_err(G_app):
         plxerr = 10**(np.random.normal(plxerr_params[0], plxerr_params[1]))
 
     return plxerr
+
+
+def K_mag_err(k_app):
+    '''
+    Based on the apparent k_mag,
+    return the k magnitude uncertainty for a single star
+    '''
+    magerr_ints = np.array([5, 12, 13, 14, 14.5, 15, 16])
+
+    mag_errs = np.array([[-1.64, 0.05, -1.90],
+                         [-1.56, 0.06, -1.80],
+                         [-1.37, 0.09 , -1.80],
+                         [-1.15, 0.07, -1.50],
+                         [-0.98, 0.07, -1.30],
+                         [-0.86, 0.04, -1.10]])
+
+    magerr_index = np.digitize(k_app, magerr_ints)
+
+    if magerr_index == 0:
+        magerr_index = 1
+    elif magerr_index > len(mag_errs):
+        magerr_index = len(mag_errs)
+
+    magerr_params = mag_errs[magerr_index-1]
+
+    magerr = 0
+    while magerr < 10**(magerr_params[2]):
+        magerr = 10**(np.random.normal(magerr_params[0], magerr_params[1]))
+
+    return magerr
+
+
