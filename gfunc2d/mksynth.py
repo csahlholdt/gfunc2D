@@ -302,6 +302,9 @@ def SM_parallax(J_abs):
     '''
     plx_ints = np.arange(-5.25, 6, 0.5)
 
+    # log-normal distribution parameters for stars
+    # with parallax uncertainty < 10% in the Gaia DR2
+    # plus SkyMapper sample
     plx_dists = np.array([[-0.41, 0.12, -0.66],
                           [-0.36, 0.14, -0.70],
                           [-0.33, 0.16, -0.70],
