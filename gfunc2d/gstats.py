@@ -731,6 +731,14 @@ def estimate_sad_smooth(gfunc_files, betas=None, stars=None, dilut=None,
     T[-2, -1] = 0
     T[-2, -4:-1] = T[-1, -3:] = np.array([0.5, -2, 1.5])
 
+    # Second derivative matrix
+    # T = np.diag(np.ones(m)*2)
+    # T += np.diag(np.ones(m-1)*(-5), k=1)
+    # T += np.diag(np.ones(m-2)*4, k=2)
+    # T += np.diag(np.ones(m-3)*(-1), k=3)
+    # T[-2, -1] = T[-3, -1] = T[-3, -2] = 0
+    # T[-3, -6:-3] = T[-2, -5:-2] = T[-1, -4:-1] = np.array([-1, 4, -5])
+
     # Tw = T matrix, with each column multiplied by w(j)
     Tw = T * w
 
