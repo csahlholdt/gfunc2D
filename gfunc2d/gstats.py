@@ -324,7 +324,7 @@ def print_age_stats(output_h5, filename, smooth=False, use_mean=False):
 
 
 def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
-                  max_iter=10, min_tol=1.e-20, smooth_freq=None):
+                  max_iter=10, min_tol=1.e-20, alpha=0):
     '''
     Function for estimating the sample age metallicity distribution (samd) OR
     simply the sample age distribution (sad).
@@ -377,10 +377,11 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
         Minimum value that the samd/sad is allowed to reach.
         Default value is 1e-20.
 
-    smooth_freq : int, optional
-        At every smooth_freq'th value of beta, the function is smoothed by a
-        three point moving mean filter. Only implemented in the 1D case.
-        Default is None in which case no smoothing is applied.
+    alpha : int, optional
+        Value of the smoothing parameter. Higher values will favor solutions
+        with smaller point-to-point variations (first derivatives).
+        Not implemented proberly in the '2D' case.
+        Default value is 0.
 
     Returns
     -------
@@ -479,14 +480,25 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
         beta, dbeta, beta_max = betas
 
     # Gw = G matrix, with each column multiplied by w(j)
-    gw = np.zeros((n, k))
-    for j in range(k):
-        gw[:,j] = g[:,j] * w[j];
+    gw = g * w
 
-    # array to hold Gwu = Gw matrix, each row divided by u(i)
-    gwu = np.zeros((n, k))
+    # Derivative matrix
+    T = np.diag(np.ones(m)*(-1.5))
+    T += np.diag(np.ones(m-1)*2, k=1)
+    T += np.diag(np.ones(m-2)*(-0.5), k=2)
+    T[-2, -1] = 0
+    T[-2, -4:-1] = T[-1, -3:] = np.array([0.5, -2, 1.5])
 
-    finished = False
+    # Second derivative matrix
+    # T = np.diag(np.ones(m)*2)
+    # T += np.diag(np.ones(m-1)*(-5), k=1)
+    # T += np.diag(np.ones(m-2)*4, k=2)
+    # T += np.diag(np.ones(m-3)*(-1), k=3)
+    # T[-2, -1] = T[-3, -1] = T[-3, -2] = 0
+    # T[-3, -6:-3] = T[-2, -5:-2] = T[-1, -4:-1] = np.array([-1, 4, -5])
+
+    # Tw = T matrix, with each column multiplied by w(j)
+    Tw = T * w
 
     # list to hold beta, L, E
     Q = []
@@ -494,19 +506,23 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
     samd = []
 
     # Perform Newton-Raphson minimisation
+    finished = False
     while not finished:
         for iterr in range(max_iter):
             u = np.dot(gw, phi)
+            v = np.dot(Tw, phi)
 
-            for i in range(n):
-                gwu[i, :] = gw[i, :] / u[i]
+            gwu = gw / u[:, np.newaxis]
+            Twv = Tw * v[:, np.newaxis]
 
             # residuals
-            r = w * (1 + np.log(phi/Phi)) - beta * np.sum(gwu, 0) + lamda * w
+            r = w * (1 + np.log(phi/Phi)) - beta * np.sum(gwu, 0) \
+                + 2*alpha*beta * np.sum(Twv, 0) + lamda * w
             R = np.dot(w, phi) - 1
 
             # Hessian
-            H = np.diag(w / phi) + beta * np.dot(gwu.T, gwu)
+            H = np.diag(w / phi) + beta * np.dot(gwu.T, gwu) \
+                + 2*alpha*beta * np.dot(Tw.T, Tw)
 
             # full matrix
             M = np.zeros((k+1, k+1))
@@ -545,13 +561,7 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
 
         # re-normalise to avoid exponential growth of rounding errors
         phi /= np.dot(w, phi)
-        # apply three point moving average filter
-        if case == '1D' and smooth_freq is not None:
-            if beta == dbeta or beta%(smooth_freq*dbeta) < dbeta:
-                phi_smooth = phi.copy()
-                for i in range(1, len(phi)-1):
-                    phi_smooth[i] = np.mean(phi[i-1:i+2])
-                phi = phi_smooth
+
         if case == '1D':
             samd.append(phi)
         elif case == '2D':
@@ -574,14 +584,12 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
 def estimate_sad_smooth(gfunc_files, betas=None, stars=None, dilut=None,
                         max_iter=10, min_tol=1.e-20, alpha=10):
     '''
-    Function for estimating the sample age metallicity distribution (samd) OR
-    simply the sample age distribution (sad).
+    Function for estimating the sample age distribution (SAD).
 
     This uses a Newton-Raphson minimisation to find the function phi which
     maximises the likelihood L(phi) = sum(L_i(phi)), where
         L_i(phi) = int(G_i(theta)*phi(theta)) ,
-    and G_i are the G functions and theta is either the age (in the 1D case)
-    or both the age and metallicity (in the 2D) case.
+    and G_i are the G functions and theta is the age.
 
     Parameters
     ----------
