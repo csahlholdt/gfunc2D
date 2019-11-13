@@ -11,6 +11,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import norm
 from scipy.optimize import newton
+from scipy.linalg import block_diag
 
 
 def smooth_gfunc2d(g):
@@ -456,6 +457,8 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
         k = m
     elif case == '2D':
         k = m*l
+        # reshape with "age-order" (each row is a sequence of functions
+        # like in the '1D' case)
         g = g2d.reshape(n, k, order='F')
 
     #------------------------------------------------
@@ -482,12 +485,25 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
     # Gw = G matrix, with each column multiplied by w(j)
     gw = g * w
 
-    # Derivative matrix
-    T = np.diag(np.ones(m)*(-1.5))
-    T += np.diag(np.ones(m-1)*2, k=1)
-    T += np.diag(np.ones(m-2)*(-0.5), k=2)
-    T[-2, -1] = 0
-    T[-2, -4:-1] = T[-1, -3:] = np.array([0.5, -2, 1.5])
+    # Derivative matrix, age-order
+    T_age = np.diag(np.ones(m)*(-1.5))
+    T_age += np.diag(np.ones(m-1)*2, k=1)
+    T_age += np.diag(np.ones(m-2)*(-0.5), k=2)
+    T_age[-2, -1] = 0
+    T_age[-2, -4:-1] = T_age[-1, -3:] = np.array([0.5, -2, 1.5])
+
+    if case == '2D':
+        # Derivative matrix, feh-order
+        T_feh = np.diag(np.ones(l)*(-1.5))
+        T_feh += np.diag(np.ones(l-1)*2, k=1)
+        T_feh += np.diag(np.ones(l-2)*(-0.5), k=2)
+        T_feh[-2, -1] = 0
+        T_feh[-2, -4:-1] = T_feh[-1, -3:] = np.array([0.5, -2, 1.5])
+
+        T_age_repeat = [T_age for i in range(l)]
+        T_age = block_diag(*T_age_repeat)
+        T_feh_repeat = [T_feh for i in range(m)]
+        T_feh = block_diag(*T_feh_repeat)
 
     # Second derivative matrix
     # T = np.diag(np.ones(m)*2)
@@ -498,7 +514,9 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
     # T[-3, -6:-3] = T[-2, -5:-2] = T[-1, -4:-1] = np.array([-1, 4, -5])
 
     # Tw = T matrix, with each column multiplied by w(j)
-    Tw = T * w
+    Tw_age = T_age * w
+    if case == '2D':
+        Tw_feh = T_feh * w
 
     # list to hold beta, L, E
     Q = []
@@ -510,19 +528,39 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
     while not finished:
         for iterr in range(max_iter):
             u = np.dot(gw, phi)
-            v = np.dot(Tw, phi)
+            v_age = np.dot(Tw_age, phi)
+            if case == '2D':
+                phi_feh = phi.reshape(m, l, order='F').reshape(k, order='C')
+                v_feh = np.dot(Tw_feh, phi_feh)
 
             gwu = gw / u[:, np.newaxis]
-            Twv = Tw * v[:, np.newaxis]
+            Twv_age = Tw_age * v_age[:, np.newaxis]
+            if case == '2D':
+                Twv_feh = Tw_feh * v_feh[:, np.newaxis]
 
             # residuals
-            r = w * (1 + np.log(phi/Phi)) - beta * np.sum(gwu, 0) \
-                + 2*alpha*beta * np.sum(Twv, 0) + lamda * w
+            if case == '1D':
+                r = w * (1 + np.log(phi/Phi)) - beta * np.sum(gwu, 0) \
+                    + 2*alpha*beta * np.sum(Twv_age, 0) + lamda * w
+            elif case == '2D':
+#                r = w * (1 + np.log(phi/Phi)) - beta * np.sum(gwu, 0) \
+#                    + 2*alpha*beta * (np.sum(Twv_age, 0) + np.sum(Twv_feh, 0)) \
+#                    + lamda * w
+                r = w * (1 + np.log(phi/Phi)) - beta * np.sum(gwu, 0) \
+                    + 2*alpha*beta * np.sum(Twv_age, 0) \
+                    + lamda * w
             R = np.dot(w, phi) - 1
 
             # Hessian
-            H = np.diag(w / phi) + beta * np.dot(gwu.T, gwu) \
-                + 2*alpha*beta * np.dot(Tw.T, Tw)
+            if case == '1D':
+                H = np.diag(w / phi) + beta * np.dot(gwu.T, gwu) \
+                    + 2*alpha*beta * np.dot(Tw_age.T, Tw_age)
+            elif case == '2D':
+#                H = np.diag(w / phi) + beta * np.dot(gwu.T, gwu) \
+#                    + 2*alpha*beta * (np.dot(Tw_age.T, Tw_age) + \
+#                     np.dot(Tw_feh.T, Tw_feh))
+                H = np.diag(w / phi) + beta * np.dot(gwu.T, gwu) \
+                    + 2*alpha*beta * np.dot(Tw_age.T, Tw_age)
 
             # full matrix
             M = np.zeros((k+1, k+1))
