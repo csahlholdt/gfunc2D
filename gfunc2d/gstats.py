@@ -296,8 +296,11 @@ def print_age_stats(output_h5, filename, smooth=False, use_mean=False):
             star_id = np.array([star for star in gf_group])
         else:
             star_id = np.array(gf_group)
-            star_id_sort = np.argsort([int(x) for x in star_id])
-            star_id = star_id[star_id_sort]
+            try:
+                star_id_sort = np.argsort([int(x) for x in star_id])
+                star_id = star_id[star_id_sort]
+            except ValueError:
+                print('star_id not sorted in '+filename)
 
         n_star = len(star_id)
         age_arr = np.zeros((n_star, 5))
