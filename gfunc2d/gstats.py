@@ -11,6 +11,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import norm
 from scipy.optimize import newton
+from scipy.linalg import block_diag
 
 
 def smooth_gfunc2d(g):
@@ -47,7 +48,7 @@ def norm_gfunc(g, method='maxone'):
 
     method : str, optional
         Normalisation method.
-        Default is 'maxone' which scales the maximum value to unity.
+        Default is 'maxone' which scales the max value to one.
 
     Returns
     -------
@@ -55,13 +56,18 @@ def norm_gfunc(g, method='maxone'):
         Normalised G function.
     '''
 
+    gmax = np.amax(g)
     if method == 'maxone':
-        gmax = np.amax(g)
         if gmax == 0:
             gnorm = np.ones_like(g)
         else:
             gnorm = g / np.amax(g)
-#    elif method == 'other_method':
+    elif method == 'sumone':
+        if gmax == 0:
+            gnorm = np.ones_like(g) / np.size(g)
+        else:
+            gnorm = g / np.sum(g)
+#    elif method == 'some other method':
 #        gnorm = ...
     else:
         raise ValueError('Unknown normalization method')
@@ -259,7 +265,7 @@ def print_age_stats(output_h5, filename, smooth=False, use_mean=False):
     '''
     Function for printing ages and confidence intervals to a text file
     based on an output hdf5 file (containing the 2D G functions).
-    The age statistics which are printet are the mode of the G function as
+    The age statistics which are printed are the mode of the G function as
     well as the 68 and 90% confidence intervals (this can be changed in
     the source code).
 
@@ -290,8 +296,11 @@ def print_age_stats(output_h5, filename, smooth=False, use_mean=False):
             star_id = np.array([star for star in gf_group])
         else:
             star_id = np.array(gf_group)
-            star_id_sort = np.argsort([int(x) for x in star_id])
-            star_id = star_id[star_id_sort]
+            try:
+                star_id_sort = np.argsort([int(x) for x in star_id])
+                star_id = star_id[star_id_sort]
+            except ValueError:
+                print('star_id not sorted in '+filename)
 
         n_star = len(star_id)
         age_arr = np.zeros((n_star, 5))
@@ -313,13 +322,13 @@ def print_age_stats(output_h5, filename, smooth=False, use_mean=False):
 
         # Combine identifiers and data in DataFrame and write to txt
         pd_arr = pd.DataFrame(age_arr, index=star_id_pad)
-        pd_arr.to_csv(filename, sep='\t', index_label='#ID number',
+        pd_arr.to_csv(filename, sep='\t', index_label='#IDnumber',
                       header=['5', '16', 'Mode', '84', '95'],
                       float_format='%2.2f', na_rep='nan')
 
 
-def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
-                  max_iter=10, min_tol=1.e-20):
+def estimate_samd(gfunc_files, case='1D', betas=None,  alpha=0, stars=None,
+                  grid_slice=None, grid_thin=None, max_iter=10, min_tol=1.e-20):
     '''
     Function for estimating the sample age metallicity distribution (samd) OR
     simply the sample age distribution (sad).
@@ -337,11 +346,11 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
         If more than one, the output in the different files MUST be defined on
         the same age/metallicity grids.
 
-    case : str
+    case : str, optional
         Determines whether the 2D (samd) or 1D (sad) is calculated.
         '2D' for samd and '1D' for sad. Default is '1D'.
 
-    betas : tuple
+    betas : tuple, optional
         Beta is a regularization parameter which regulates how strongly the
         solution favors a flat (constant) function (0 is most strict, higher
         numbers are less strict).
@@ -352,25 +361,42 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
         to allow a gentle convergence towards a sensible solution.
         Default is None in which case the values (0.01, 0.01, 1.00) are used.
 
-    stars : list of str
+    alpha : int, optional
+        Value of the smoothing parameter. Higher values will favor solutions
+        with smaller point-to-point variations (first derivatives).
+        Not implemented proberly in the '2D' case.
+        Default value is 0.
+
+    stars : list of str, optional
         List of star identifiers (as used in the gfunc_files) to be included in
         the calculation.
         Default is None in which case all stars are included.
 
-    dilut : tuple of ints
-        Dilution factor. If specified, it must be a tuple of two integers, and
-        only every `dilut[0]`th age and every `dilut[1]`th metallicity
-        grid point is considered. This increases performance by lowering the
-        size of the problem.
-        Default is None in which case all grid points are considered.
+    grid_slice : tuple of ints, optional
+        Grid slice indices. If specified, it must be a tuple of four integers,
+        and only the ages from grid_slice[0] to grid_slice[1] and the
+        metallicities from grid_slice[2] to grid_slice[3] are considered.
+        This increases performance by decresaing the size of the problem.
+        Default value is None in which case all grid points are considered.
+        Note that if gfunctions are saved as 1D, only the first two integers
+        are used (it is too late to thin in metallicity).
 
-    max_iter : int
+    grid_thin : tuple of ints, optional
+        Thinning factor. If specified, it must be a tuple of two integers, and
+        only every `grid_thin[0]`th age and every `grid_thin[1]`th metallicity
+        grid point is considered. This increases performance by decreasing the
+        size of the problem.
+        This thinning is performed after slicing with grid_slice.
+        Default is None in which case all grid points (in the grid_slice
+        selection) are considered.
+
+    max_iter : int, optional
         Maximum number of Newton-Raphson iterations per beta.
         Default value is 10
 
-    min_tol : float
-        Minimum value that the samd/sad must reach in order to end the
-        calculation.
+    min_tol : float, optional
+        Minimum value that the samd/sad is allowed to reach.
+        Default value is 1e-20.
 
     Returns
     -------
@@ -422,13 +448,22 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
     g2d = np.array(g2d)
 
     # Make grid more coarse (optionally, increases performance)
-    if dilut is not None:
+    if grid_slice is not None:
         if saved_2d:
-            g2d = g2d[:, ::dilut[0], ::dilut[1]]
+            g2d = g2d[:, grid_slice[0]:grid_slice[1],
+                         grid_slice[2]:grid_slice[3]]
         else:
-            g2d = g2d[:, ::dilut[0]]
-        tau_grid = tau_grid[::dilut[0]]
-        feh_grid = feh_grid[::dilut[1]]
+            g2d = g2d[:, grid_slice[0]:grid_slice[1]]
+        tau_grid = tau_grid[grid_slice[0]:grid_slice[1]]
+        feh_grid = feh_grid[grid_slice[2]:grid_slice[3]]
+
+    if grid_thin is not None:
+        if saved_2d:
+            g2d = g2d[:, ::grid_thin[0], ::grid_thin[1]]
+        else:
+            g2d = g2d[:, ::grid_thin[0]]
+        tau_grid = tau_grid[::grid_thin[0]]
+        feh_grid = feh_grid[::grid_thin[1]]
 
     # Number of tau/feh-values and number of stars
     l = len(feh_grid)
@@ -445,7 +480,11 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
         k = m
     elif case == '2D':
         k = m*l
+        # reshape with "age-order" (each row is a sequence of functions
+        # like in the '1D' case)
         g = g2d.reshape(n, k, order='F')
+    # add small number to avoid log(0)
+    g += 1e-10
 
     #------------------------------------------------
     # Set up for estimating age distribution phi(1:k)
@@ -469,34 +508,66 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
         beta, dbeta, beta_max = betas
 
     # Gw = G matrix, with each column multiplied by w(j)
-    gw = np.zeros((n, k))
-    for j in range(k):
-        gw[:,j] = g[:,j] * w[j];
+    gw = g * w
 
-    # array to hold Gwu = Gw matrix, each row divided by u(i)
-    gwu = np.zeros((n, k))
+    # Derivative matrix
+    T = np.diag(np.ones(m)*(-1.5))
+    T += np.diag(np.ones(m-1)*2, k=1)
+    T += np.diag(np.ones(m-2)*(-0.5), k=2)
+    T[-2, -1] = 0
+    T[-2, -4:-1] = T[-1, -3:] = np.array([0.5, -2, 1.5])
 
-    finished = False
+    if case == '2D':
+        del_tau = abs(tau_grid[1]-tau_grid[0])
+        del_feh = abs(feh_grid[1]-feh_grid[0])
+        T1 = np.diag(np.ones(m)*(-1*(2/del_tau+1/del_feh)))
+        T1[0][0] = T1[-1][-1] = -1*(1/del_tau+1/del_feh)
+        T1 += np.diag(np.ones(m-1)*(1/del_tau), k=1)
+        T1 += np.diag(np.ones(m-1)*(1/del_tau), k=-1)
+        T2 = np.diag(np.ones(m)*(-1*(2/del_tau+2/del_feh)))
+        T2[0][0] = T2[-1][-1] = -1*(1/del_tau+2/del_feh)
+        T2 += np.diag(np.ones(m-1)*(1/del_tau), k=1)
+        T2 += np.diag(np.ones(m-1)*(1/del_tau), k=-1)
+        T_repeat = [T1] + [T2 for i in range(l-2)] + [T1]
+        T = block_diag(*T_repeat)
+        T += np.diag(np.ones(k-m)*(1/del_feh), k=m)
+        T += np.diag(np.ones(k-m)*(1/del_feh), k=-m)
 
-    # list to hold beta, L, E
+    # Second derivative matrix
+    # T = np.diag(np.ones(m)*2)
+    # T += np.diag(np.ones(m-1)*(-5), k=1)
+    # T += np.diag(np.ones(m-2)*4, k=2)
+    # T += np.diag(np.ones(m-3)*(-1), k=3)
+    # T[-2, -1] = T[-3, -1] = T[-3, -2] = 0
+    # T[-3, -6:-3] = T[-2, -5:-2] = T[-1, -4:-1] = np.array([-1, 4, -5])
+
+    # Tw = T matrix, with each column multiplied by w(j)
+    Tw = T * w
+
+    # list to hold beta, L, E, R
     Q = []
     # list to hold phi (the age/age-metallicity distribution)
     samd = []
 
     # Perform Newton-Raphson minimisation
+    finished = False
     while not finished:
         for iterr in range(max_iter):
             u = np.dot(gw, phi)
+            v = np.dot(Tw, phi)
 
-            for i in range(n):
-                gwu[i, :] = gw[i, :] / u[i]
+            u[u == 0] = 1 # avoid division by zero
+            gwu = gw / u[:, np.newaxis]
+            Twv = Tw * v[:, np.newaxis]
 
             # residuals
-            r = w * (1 + np.log(phi/Phi)) - beta * np.sum(gwu, 0) + lamda * w
+            r = w * (1 + np.log(phi/Phi)) - beta * np.sum(gwu, 0) \
+                + 2*alpha*beta * np.sum(Twv, 0) + lamda * w
             R = np.dot(w, phi) - 1
 
             # Hessian
-            H = np.diag(w / phi) + beta * np.dot(gwu.T, gwu)
+            H = np.diag(w / phi) + beta * np.dot(gwu.T, gwu) \
+                + 2*alpha*beta * np.dot(Tw.T, Tw)
 
             # full matrix
             M = np.zeros((k+1, k+1))
@@ -527,12 +598,15 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
                 phi_test = phi + f * Delta_phi
             phi = phi_test
             lamda += f * Delta_lambda
-            if min(phi) < min_tol or beta >= beta_max:
+
+            phi[phi < min_tol] = min_tol
+            if beta >= beta_max:
                 finished = True
                 break
 
         # re-normalise to avoid exponential growth of rounding errors
         phi /= np.dot(w, phi)
+
         if case == '1D':
             samd.append(phi)
         elif case == '2D':
@@ -542,10 +616,13 @@ def estimate_samd(gfunc_files, case='1D', betas=None, stars=None, dilut=None,
         E = np.sum(w * phi * np.log(phi / Phi))
 
         # total negative log-likelihood
-        L = -np.sum(np.log(u))
+        L = -np.sum(np.log(np.dot(gw, phi)))
+
+        # total regularization term
+        R = np.sum(np.dot(Tw, phi)**2)
 
         # add to list Q
-        Q.append([beta, L, E])
+        Q.append([beta, L, E, R])
 
         beta += dbeta
 

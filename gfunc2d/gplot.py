@@ -124,6 +124,8 @@ def hr_plot(ax, isodict, sid, hr_axes, hr_vals, hr_units, par=None,
     if yunit == 'mag':
         yval_plot = -5*np.log10(par/100)
         legend_loc = 3
+    elif yax == 'logL':
+        yval_plot = np.log10(yval)
     else:
         yval_plot = yval
         legend_loc = 2

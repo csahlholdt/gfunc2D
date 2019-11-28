@@ -8,7 +8,8 @@ known_filters = ['J', 'H', 'Ks', #2MASS
                  'G', 'G_BPbr', 'G_BPft', 'G_RP'] #Gaia (DR2)
 
 def generate_synth_stars(isogrid, outputfile, t_bursts, ns, feh_params,
-                         IMF_alpha=2.35, rand_seed=1, extra_giants=0):
+                         IMF_alpha=2.35, rand_seed=1, extra_giants=0,
+                         force_SFR=False):
     """
     Generate synthetic sample of stars, save stellar parameters in hdf5-format.
 
@@ -97,6 +98,7 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, feh_params,
 
         # Get the isochrone for [Fe/H], age
         q, afa = get_isochrone(gridfile, 0.0, feh_test, age)
+        iso_age = afa[2] # True age
 
         # Find indices of lowest model-to-model temperature difference
         low_inds = np.argsort(np.diff(10**q['logT']))[:5]
@@ -107,7 +109,7 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, feh_params,
         # a giant
         if iv < ns*(1-extra_giants):
             # Minimum temperature to include (setting the minimum mass also)
-            Teffmin_dwarf = 4500-500*feh_test
+            Teffmin_dwarf = 5300-500*feh_test
             idx_dwarf = np.argmin((np.abs(10**q['logT'][:split_ind]-Teffmin_dwarf)))
             m_min = q['Mini'][idx_dwarf]
             phase_i = 0
@@ -116,9 +118,10 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, feh_params,
             phase_i = 1
 
         m = m_min * np.random.rand()**(-1/(IMF_alpha-1)) # True initial mass
-
-        iso_age = afa[2] # True age
         q_mass = q['Mini']
+        if force_SFR:
+            while m >= q_mass[-1]: # the mass is too large
+                m = m_min * np.random.rand()**(-1/(IMF_alpha-1)) # try again
 
         # If initial mass is in the valid range for the age
         if m < q_mass[-1]:
@@ -157,7 +160,8 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, feh_params,
     outfile.close()
 
 
-def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='SN'):
+def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution=1,
+                   perturb_true_values=True):
     '''
     Generate an input file for gfunc2D based on synthetic sample of stars.
 
@@ -177,11 +181,9 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='SN'):
         be saved in Kelvin, not as logarithm).
 
     plx_distribution : float, optional
-        Value of the parallax. Can also give the string 'SN' in which case the
-        parallaxes are given an exponential distribution to mimic the density
-        of observed stars in the solar neighborhood, or 'Skymapper' which
-        mimics the parallax distribution in SkyMapper data.
-        Default value is 'SN'.
+        Value of the parallax in mas. Can also give the string 'Skymapper'
+        which mimics the parallax distribution in SkyMapper data.
+        Default value is 1.
     '''
 
     # Check whether observed magnitudes should be calculated
@@ -200,21 +202,28 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='SN'):
         try:
             if oparam == 'logT':
                 true_data[oparam] = 10**(synth_data['data/'+oparam][:])
+            elif '-' in oparam:
+                (col1, col2) = oparam.split('-')
+                true_data[oparam] = synth_data['data/'+col1][:]-synth_data['data/'+col2][:]
             else:
                 true_data[oparam] = synth_data['data/'+oparam][:]
         except:
-            raise KeyError('Parameter ' + oparam + ' not in synthetic data...')
+            raise KeyError('Problem with parameter ' + oparam + ' (not in synthetic data?)')
+
+    # Whether or not these magnitudes are to be observed, they are loaded
+    # to be used when defining parallax uncertainties
+    J_mag_true = synth_data['data/J'][:]
+    G_mag_true = synth_data['data/G'][:]
     synth_data.close()
 
     # If parallaxes are to be fitted, the true values are assumed based on
     # the input plx_distribution
     if 'plx' in obs_params:
-        if plx_distribution == 'SN':
-            # Approximate parallax distribution of stars in the solar neighborhood
-            plx_true = np.exp(np.random.normal(0.5637, 0.8767, ns))
-        elif plx_distribution == 'Skymapper':
+        plx_true = np.zeros(ns)
+        if plx_distribution == 'Skymapper':
             # Approximate parallax distribution of stars in the SkyMapper survey
-            plx_true = np.exp(np.random.normal(-0.255, 0.656, ns))
+            for i in range(ns):
+                plx_true[i] = SM_parallax(J_mag_true[i])
         else:
             # Else a constant value (given in plx_distribution)
             plx_true = plx_distribution*np.ones(ns)
@@ -226,6 +235,7 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='SN'):
         app_mags_true = {x: [] for x in obs_mags}
         for mag in obs_mags:
             app_mags_true[mag] = true_data[mag] + mu_true
+        G_app_mag_true = G_mag_true + mu_true
 
     # Prepare dictionary with observed parameters
     obs_data = {x: [] for x in obs_params}
@@ -233,34 +243,47 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='SN'):
     # Make observed data assuming Gaussian uncertainties
     for oparam in obs_data:
         if oparam in obs_mags:
-            if obs_params[oparam][1] == 'abs':
-                obs_data[oparam] = app_mags_true[oparam] + \
-                                   np.random.normal(0, obs_params[oparam][0], ns)
+            if oparam == 'Ks' and obs_params[oparam][1] == 'mag':
+                Ks_err = np.zeros(ns)
+                for i in range(ns):
+                    Ks_err[i] = K_mag_err(app_mags_true[oparam][i])
+                obs_data[oparam] = app_mags_true[oparam]
+                if perturb_true_values:
+                    obs_data[oparam] += np.random.normal(0, Ks_err)
+            elif obs_params[oparam][1] == 'abs':
+                obs_data[oparam] = app_mags_true[oparam]
+                if perturb_true_values:
+                    obs_data[oparam] += np.random.normal(0, obs_params[oparam][0], ns)
             else:
-                obs_data[oparam] = app_mags_true[oparam] + \
-                                   np.random.normal(0, app_mags_true[oparam]*obs_params[oparam][0], ns)
-        elif oparam == 'plx' and plx_distribution == 'Skymapper':
-            plx_rel_err_interval = np.arange(0.02, 0.21, 0.01)
-            plx_rel_err_prob = np.exp(-14*plx_rel_err_interval)
-            plx_rel_err_prob = plx_rel_err_prob / np.sum(plx_rel_err_prob)
-            plx_rel_err = np.random.choice(plx_rel_err_interval, ns, p=plx_rel_err_prob)
-            obs_data[oparam] = true_data[oparam] + \
-                               np.random.normal(0, true_data[oparam]*plx_rel_err, ns)
+                obs_data[oparam] = app_mags_true[oparam]
+                if perturb_true_values:
+                    obs_data[oparam] += np.random.normal(0, app_mags_true[oparam]*obs_params[oparam][0], ns)
+        elif oparam == 'plx' and obs_params[oparam][1] == 'Gaia':
+            plx_true_err = np.zeros(ns)
+            for i in range(ns):
+                plx_true_err[i] = SM_parallax_err(G_app_mag_true[i])
+            obs_data[oparam] = true_data[oparam]
+            if perturb_true_values:
+                obs_data[oparam] += np.random.normal(0, plx_true_err)
         else:
             if obs_params[oparam][1] == 'abs':
-                obs_data[oparam] = true_data[oparam] + \
-                                   np.random.normal(0, obs_params[oparam][0], ns)
+                obs_data[oparam] = true_data[oparam]
+                if perturb_true_values:
+                    obs_data[oparam] += np.random.normal(0, obs_params[oparam][0], ns)
             else:
-                obs_data[oparam] = true_data[oparam] + \
-                                   np.random.normal(0, true_data[oparam]*obs_params[oparam][0], ns)
-
+                obs_data[oparam] = true_data[oparam]
+                if perturb_true_values:
+                    obs_data[oparam] += np.random.normal(0, true_data[oparam]*obs_params[oparam][0], ns)
 
     # Use pandas to organize the data and print it to a text file
     pd_data = pd.DataFrame.from_dict(obs_data)
     for i, column in enumerate(list(pd_data)[::-1]):
-        if column == 'plx' and plx_distribution == 'Skymapper':
+        if column == 'Ks' and obs_params[column][1] == 'mag':
             pd_data.insert(len(obs_data)-i, column+'_unc',
-                           true_data[column]*plx_rel_err)
+                           Ks_err)
+        elif column == 'plx' and obs_params[column][1] == 'Gaia':
+            pd_data.insert(len(obs_data)-i, column+'_unc',
+                           plx_true_err)
         else:
             if obs_params[column][1] == 'abs':
                 pd_data.insert(len(obs_data)-i, column+'_unc',
@@ -270,3 +293,118 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution='SN'):
                                obs_params[column][0]*true_data[column])
     pd_data.to_csv(outputfile, index_label='#sid', sep='\t',
                    float_format='%10.4f')
+
+
+def SM_parallax(J_abs):
+    '''
+    Based on the absolute J_magnitude,
+    return the parallax for a single star
+    '''
+    plx_ints = np.arange(-5.25, 6, 0.5)
+
+    # log-normal distribution parameters for stars
+    # with parallax uncertainty < 10% in the Gaia DR2
+    # plus SkyMapper sample
+    plx_dists = np.array([[-0.41, 0.12, -0.66],
+                          [-0.36, 0.14, -0.70],
+                          [-0.33, 0.16, -0.70],
+                          [-0.31, 0.18, -0.70],
+                          [-0.31, 0.21, -0.70],
+                          [-0.33, 0.23, -0.70],
+                          [-0.33, 0.24, -0.70],
+                          [-0.39, 0.24, -0.70],
+                          [-0.29, 0.24, -0.70],
+                          [-0.27, 0.23, -0.70],
+                          [-0.25, 0.23, -0.70],
+                          [-0.22, 0.23, -0.70],
+                          [-0.18, 0.23, -0.67],
+                          [-0.14, 0.24, -0.64],
+                          [-0.11, 0.24, -0.59],
+                          [-0.08, 0.23, -0.53],
+                          [-0.05, 0.22, -0.48],
+                          [ 0.01, 0.22, -0.43],
+                          [ 0.08, 0.22, -0.36],
+                          [ 0.18, 0.21, -0.28],
+                          [ 0.23, 0.23, -0.20],
+                          [ 0.49, 0.30, -0.02]])
+
+    plx_index = np.digitize(J_abs, plx_ints)
+
+    if plx_index == 0:
+        plx_index = 1
+    elif plx_index > len(plx_dists):
+        plx_index = len(plx_dists)
+
+    plx_params = plx_dists[plx_index-1]
+
+    plx = 0
+    while plx < 10**(plx_params[2]):
+        plx = 10**(np.random.normal(plx_params[0], plx_params[1]))
+
+    return plx
+
+
+def SM_parallax_err(G_app):
+    '''
+    Based on the apparent G_mag,
+    return the parallax uncertainty for a single star
+    '''
+    plxerr_ints = np.arange(8, 19, 1)
+
+    plx_errs = np.array([[-1.4, 0.17, -1.70],
+                         [-1.4, 0.19, -1.70],
+                         [-1.39, 0.2 , -1.70],
+                         [-1.42, 0.18, -1.70],
+                         [-1.45, 0.17, -1.70],
+                         [-1.61, 0.17, -1.70],
+                         [-1.52, 0.15, -1.70],
+                         [-1.4, 0.13, -1.70],
+                         [-1.3, 0.1 , -1.55],
+                         [-0.92, 0.15, -1.21]])
+
+    plxerr_index = np.digitize(G_app, plxerr_ints)
+
+    if plxerr_index == 0:
+        plxerr_index = 1
+    elif plxerr_index > len(plx_errs):
+        plxerr_index = len(plx_errs)
+
+    plxerr_params = plx_errs[plxerr_index-1]
+
+    plxerr = 0
+    while plxerr < 10**(plxerr_params[2]):
+        plxerr = 10**(np.random.normal(plxerr_params[0], plxerr_params[1]))
+
+    return plxerr
+
+
+def K_mag_err(k_app):
+    '''
+    Based on the apparent k_mag,
+    return the k magnitude uncertainty for a single star
+    '''
+    magerr_ints = np.array([5, 12, 13, 14, 14.5, 15, 16])
+
+    mag_errs = np.array([[-1.64, 0.05, -1.90],
+                         [-1.56, 0.06, -1.80],
+                         [-1.37, 0.09 , -1.80],
+                         [-1.15, 0.07, -1.50],
+                         [-0.98, 0.07, -1.30],
+                         [-0.86, 0.04, -1.10]])
+
+    magerr_index = np.digitize(k_app, magerr_ints)
+
+    if magerr_index == 0:
+        magerr_index = 1
+    elif magerr_index > len(mag_errs):
+        magerr_index = len(mag_errs)
+
+    magerr_params = mag_errs[magerr_index-1]
+
+    magerr = 0
+    while magerr < 10**(magerr_params[2]):
+        magerr = 10**(np.random.normal(magerr_params[0], magerr_params[1]))
+
+    return magerr
+
+
