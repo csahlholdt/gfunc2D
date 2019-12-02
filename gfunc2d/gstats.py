@@ -511,11 +511,11 @@ def estimate_samd(gfunc_files, case='1D', betas=None,  alpha=0, stars=None,
     gw = g * w
 
     # Derivative matrix
-    T = np.diag(np.ones(m)*(-1.5))
-    T += np.diag(np.ones(m-1)*2, k=1)
-    T += np.diag(np.ones(m-2)*(-0.5), k=2)
+    T = np.diag(np.ones(m))
+    T += np.diag(np.ones(m-1)*(-2), k=1)
+    T += np.diag(np.ones(m-2), k=2)
     T[-2, -1] = 0
-    T[-2, -4:-1] = T[-1, -3:] = np.array([0.5, -2, 1.5])
+    T[-2, -4:-1] = T[-1, -3:] = np.array([1, -2, 1])
 
     if case == '2D':
         del_tau = abs(tau_grid[1]-tau_grid[0])
@@ -532,14 +532,6 @@ def estimate_samd(gfunc_files, case='1D', betas=None,  alpha=0, stars=None,
         T = block_diag(*T_repeat)
         T += np.diag(np.ones(k-m)*(1/del_feh), k=m)
         T += np.diag(np.ones(k-m)*(1/del_feh), k=-m)
-
-    # Second derivative matrix
-    # T = np.diag(np.ones(m)*2)
-    # T += np.diag(np.ones(m-1)*(-5), k=1)
-    # T += np.diag(np.ones(m-2)*4, k=2)
-    # T += np.diag(np.ones(m-3)*(-1), k=3)
-    # T[-2, -1] = T[-3, -1] = T[-3, -2] = 0
-    # T[-3, -6:-3] = T[-2, -5:-2] = T[-1, -4:-1] = np.array([-1, 4, -5])
 
     # Tw = T matrix, with each column multiplied by w(j)
     Tw = T * w
