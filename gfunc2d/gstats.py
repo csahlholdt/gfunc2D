@@ -518,20 +518,18 @@ def estimate_samd(gfunc_files, case='1D', betas=None,  alpha=0, stars=None,
     T[-2, -4:-1] = T[-1, -3:] = np.array([1, -2, 1])
 
     if case == '2D':
-        del_tau = abs(tau_grid[1]-tau_grid[0])
-        del_feh = abs(feh_grid[1]-feh_grid[0])
-        T1 = np.diag(np.ones(m)*(-1*(2/del_tau+1/del_feh)))
-        T1[0][0] = T1[-1][-1] = -1*(1/del_tau+1/del_feh)
-        T1 += np.diag(np.ones(m-1)*(1/del_tau), k=1)
-        T1 += np.diag(np.ones(m-1)*(1/del_tau), k=-1)
-        T2 = np.diag(np.ones(m)*(-1*(2/del_tau+2/del_feh)))
-        T2[0][0] = T2[-1][-1] = -1*(1/del_tau+2/del_feh)
-        T2 += np.diag(np.ones(m-1)*(1/del_tau), k=1)
-        T2 += np.diag(np.ones(m-1)*(1/del_tau), k=-1)
+        T1 = np.diag(np.ones(m)*(-3))
+        T1[0][0] = T1[-1][-1] = -2
+        T1 += np.diag(np.ones(m-1), k=1)
+        T1 += np.diag(np.ones(m-1), k=-1)
+        T2 = np.diag(np.ones(m)*(-4))
+        T2[0][0] = T2[-1][-1] = -3
+        T2 += np.diag(np.ones(m-1), k=1)
+        T2 += np.diag(np.ones(m-1), k=-1)
         T_repeat = [T1] + [T2 for i in range(l-2)] + [T1]
         T = block_diag(*T_repeat)
-        T += np.diag(np.ones(k-m)*(1/del_feh), k=m)
-        T += np.diag(np.ones(k-m)*(1/del_feh), k=-m)
+        T += np.diag(np.ones(k-m), k=m)
+        T += np.diag(np.ones(k-m), k=-m)
 
     # Tw = T matrix, with each column multiplied by w(j)
     Tw = T * w
