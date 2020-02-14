@@ -145,7 +145,7 @@ def generate_synth_stars(isogrid, outputfile, t_bursts, ns, feh_params,
     gridfile.close()
 
     # Open the file that the synthetic sample is saved in
-    outfile = h5py.File(outputfile, 'w')
+    outfile = h5py.File(outputfile, 'r+')
 
     # Save the config information
     for cparam in config:

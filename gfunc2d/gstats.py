@@ -289,7 +289,7 @@ def print_age_stats(output_h5, filename, smooth=False, use_mean=False):
         Default is False.
     '''
 
-    with h5py.File(output_h5) as out:
+    with h5py.File(output_h5, 'r') as out:
         ages = out['grid/tau'][:]
         gf_group = out['gfuncs']
         if len(gf_group) == 1:

@@ -235,7 +235,7 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
                   os.path.join(outputdir, 'figures'))
 
     # Prepare output hdf5 groups and fill in header
-    with h5py.File(output_h5) as h5out:
+    with h5py.File(output_h5, 'a') as h5out:
         h5out.create_group('header')
         h5out.create_group('gfuncs')
         h5out.create_group('grid')
@@ -287,7 +287,7 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
                                           margm_fast=margm_fast)
 
         # Save G-function
-        with h5py.File(output_h5) as h5out:
+        with h5py.File(output_h5, 'r+') as h5out:
             if save2d:
                 h5out['gfuncs'].create_dataset(name, data=g)
             else:
@@ -346,7 +346,7 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
             print(' ' + str(round((i+1) / len(data) * 100)) + '%')
 
     # Save (tau, feh)-grid
-    with h5py.File(output_h5) as h5out:
+    with h5py.File(output_h5, 'r+') as h5out:
         h5out['grid'].create_dataset('tau', data=tau_array)
         h5out['grid'].create_dataset('feh', data=feh_array)
 
