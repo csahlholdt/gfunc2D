@@ -194,7 +194,7 @@ def make_synth_obs(synthfile, outputfile, obs_params, plx_distribution=1,
     # Get the 'true' parameters of the synthetic stars
     true_data = {}
     synth_data = h5py.File(synthfile, 'r')
-    ns = synth_data['config/ns'].value
+    ns = synth_data['config/ns'][()]
 
     for oparam in obs_params:
         if oparam == 'plx':

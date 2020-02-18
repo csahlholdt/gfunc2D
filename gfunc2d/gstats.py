@@ -425,7 +425,7 @@ def estimate_samd(gfunc_files, case='1D', betas=None,  alpha=0, stars=None,
         elif stars is not None:
             stars_i = stars
         with h5py.File(gfunc_file, 'r') as gfile:
-            saved_2d = gfile['header/save2d'].value.decode('ascii') == 'True'
+            saved_2d = gfile['header/save2d'][()].decode('ascii') == 'True'
             if not saved_2d and case == '2D':
                 raise ValueError('Need 2D functions in output for case="2D"')
             if tau_grid is not None and feh_grid is not None:
