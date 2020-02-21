@@ -327,7 +327,7 @@ def print_age_stats(output_h5, filename, smooth=False, use_mean=False):
                       float_format='%2.2f', na_rep='nan')
 
 
-def estimate_samd(gfunc_files, case='1D', betas=None,  alpha=0, stars=None,
+def estimate_samd(gfunc_files, case='1D', betas=None, alpha=0, stars=None,
                   grid_slice=None, grid_thin=None, max_iter=10, min_tol=1.e-20):
     '''
     Function for estimating the sample age metallicity distribution (samd) OR

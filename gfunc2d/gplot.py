@@ -7,7 +7,7 @@ from gfunc2d.gridtools import get_isochrone
 from gfunc2d.gstats import smooth_gfunc2d, norm_gfunc
 
 
-def loglik_plot(ax, g, tau_array, feh_array, smooth=True):
+def loglik_plot(ax, g, tau_array, feh_array, smooth=False):
     # Add small number to allow logarithmic scale
     eps = 1e-20
     A = g.T + eps
@@ -33,7 +33,7 @@ def loglik_plot(ax, g, tau_array, feh_array, smooth=True):
     ax.set_ylim(plot_lims[2:])
 
 
-def loglik_save(g, tau_array, feh_array, savename, smooth=True):
+def loglik_save(g, tau_array, feh_array, savename, smooth=False):
     fig, ax = plt.subplots()
     loglik_plot(ax, g, tau_array, feh_array, smooth)
 
@@ -42,7 +42,7 @@ def loglik_save(g, tau_array, feh_array, savename, smooth=True):
     plt.close(fig)
 
 
-def contour_plot(axes, g, tau_array, feh_array, smooth=True):
+def contour_plot(axes, g, tau_array, feh_array, smooth=False):
     assert len(axes) == 3
 
     # Add small number to allow logarithmic scale
@@ -94,7 +94,7 @@ def contour_plot(axes, g, tau_array, feh_array, smooth=True):
     plt.setp(ax2.get_yticklabels(), visible=False)
 
 
-def contour_save(g, tau_array, feh_array, savename, smooth=True):
+def contour_save(g, tau_array, feh_array, savename, smooth=False):
     fig = plt.figure()
 
     ax0 = plt.subplot2grid((4, 4), (1, 0), colspan=3, rowspan=3)
