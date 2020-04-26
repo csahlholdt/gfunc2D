@@ -511,11 +511,9 @@ def estimate_samd(gfunc_files, case='1D', betas=None, alpha=0, stars=None,
     gw = g * w
 
     # Derivative matrix
-    T = np.diag(np.ones(m))
-    T += np.diag(np.ones(m-1)*(-2), k=1)
-    T += np.diag(np.ones(m-2), k=2)
-    T[-2, -1] = 0
-    T[-2, -4:-1] = T[-1, -3:] = np.array([1, -2, 1])
+    T = np.diag([-1]+(m-2)*[-2]+[-1])
+    T += np.diag((m-1)*[1], k=1)
+    T += np.diag((m-1)*[1], k=-1)
 
     if case == '2D':
         T1 = np.diag(np.ones(m)*(-3))
