@@ -511,33 +511,23 @@ def estimate_samd(gfunc_files, case='1D', betas=None, alpha=0, stars=None,
     gw = g * w
 
     # Derivative matrix
-    T = np.diag([0]+(m-2)*[-2]+[0])
-    T += np.diag([0]+(m-2)*[1], k=1)
-    T += np.diag((m-2)*[1]+[0], k=-1)
+    T = np.diag([-1]+(m-2)*[-2]+[-1])
+    T += np.diag((m-1)*[1], k=1)
+    T += np.diag((m-1)*[1], k=-1)
 
     if case == '2D':
-        # T1 = np.diag(np.ones(m)*(-3))
-        # T1[0][0] = T1[-1][-1] = -2
-        # T1 += np.diag(np.ones(m-1), k=1)
-        # T1 += np.diag(np.ones(m-1), k=-1)
-        # T2 = np.diag(np.ones(m)*(-4))
-        # T2[0][0] = T2[-1][-1] = -3
-        # T2 += np.diag(np.ones(m-1), k=1)
-        # T2 += np.diag(np.ones(m-1), k=-1)
-        # T_repeat = [T1] + [T2 for i in range(l-2)] + [T1]
-        # T = block_diag(*T_repeat)
-        # T += np.diag(np.ones(k-m), k=m)
-        # T += np.diag(np.ones(k-m), k=-m)
-
-        # Test, without taking edges into account
-        T1 = np.zeros((m,m))
-        T2 = np.diag([0]+(m-2)*[-4]+[0])
-        T2 += np.diag([0]+(m-2)*[1], k=1)
-        T2 += np.diag((m-2)*[1]+[0], k=-1)
+        T1 = np.diag(np.ones(m)*(-3))
+        T1[0][0] = T1[-1][-1] = -2
+        T1 += np.diag(np.ones(m-1), k=1)
+        T1 += np.diag(np.ones(m-1), k=-1)
+        T2 = np.diag(np.ones(m)*(-4))
+        T2[0][0] = T2[-1][-1] = -3
+        T2 += np.diag(np.ones(m-1), k=1)
+        T2 += np.diag(np.ones(m-1), k=-1)
         T_repeat = [T1] + [T2 for i in range(l-2)] + [T1]
         T = block_diag(*T_repeat)
-        T += np.diag(m*[0]+(l-2)*([0]+(m-2)*[1]+[0]), k=m)
-        T += np.diag((l-2)*([0]+(m-2)*[1]+[0])+m*[0], k=-m)
+        T += np.diag(np.ones(k-m), k=m)
+        T += np.diag(np.ones(k-m), k=-m)
 
     # Tw = T matrix, with each column multiplied by w(j)
     Tw = T * w
