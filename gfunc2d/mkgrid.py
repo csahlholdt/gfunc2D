@@ -38,7 +38,7 @@ def makeYY(datadir, gridfile):
     print("Building YY isochrone grid from files in directory '"
           + datadir + "'...\n")
 
-    with h5py.File(gridfile) as YYgrid:
+    with h5py.File(gridfile, 'a') as YYgrid:
         for datafile in isofiles:
             print("Processing '" + datafile + "'...")
 
@@ -385,7 +385,7 @@ def append_asteroseismology(gridfile, solar_T=5777):
         Default value is 5777.
     '''
 
-    grid = h5py.File(gridfile)
+    grid = h5py.File(gridfile, 'r+')
     for a in list(grid.keys()):
         for f in list(grid[a].keys()):
             for ag in list(grid[a+'/'+f].keys()):

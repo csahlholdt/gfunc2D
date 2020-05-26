@@ -289,7 +289,7 @@ def print_age_stats(output_h5, filename, smooth=False, use_mean=False):
         Default is False.
     '''
 
-    with h5py.File(output_h5) as out:
+    with h5py.File(output_h5, 'r') as out:
         ages = out['grid/tau'][:]
         gf_group = out['gfuncs']
         if len(gf_group) == 1:
@@ -327,7 +327,7 @@ def print_age_stats(output_h5, filename, smooth=False, use_mean=False):
                       float_format='%2.2f', na_rep='nan')
 
 
-def estimate_samd(gfunc_files, case='1D', betas=None,  alpha=0, stars=None,
+def estimate_samd(gfunc_files, case='1D', betas=None, alpha=0, stars=None,
                   grid_slice=None, grid_thin=None, max_iter=10, min_tol=1.e-20):
     '''
     Function for estimating the sample age metallicity distribution (samd) OR
@@ -425,7 +425,7 @@ def estimate_samd(gfunc_files, case='1D', betas=None,  alpha=0, stars=None,
         elif stars is not None:
             stars_i = stars
         with h5py.File(gfunc_file, 'r') as gfile:
-            saved_2d = gfile['header/save2d'].value.decode('ascii') == 'True'
+            saved_2d = gfile['header/save2d'][()].decode('ascii') == 'True'
             if not saved_2d and case == '2D':
                 raise ValueError('Need 2D functions in output for case="2D"')
             if tau_grid is not None and feh_grid is not None:
@@ -511,35 +511,23 @@ def estimate_samd(gfunc_files, case='1D', betas=None,  alpha=0, stars=None,
     gw = g * w
 
     # Derivative matrix
-    T = np.diag(np.ones(m)*(-1.5))
-    T += np.diag(np.ones(m-1)*2, k=1)
-    T += np.diag(np.ones(m-2)*(-0.5), k=2)
-    T[-2, -1] = 0
-    T[-2, -4:-1] = T[-1, -3:] = np.array([0.5, -2, 1.5])
+    T = np.diag([-1]+(m-2)*[-2]+[-1])
+    T += np.diag((m-1)*[1], k=1)
+    T += np.diag((m-1)*[1], k=-1)
 
     if case == '2D':
-        del_tau = abs(tau_grid[1]-tau_grid[0])
-        del_feh = abs(feh_grid[1]-feh_grid[0])
-        T1 = np.diag(np.ones(m)*(-1*(2/del_tau+1/del_feh)))
-        T1[0][0] = T1[-1][-1] = -1*(1/del_tau+1/del_feh)
-        T1 += np.diag(np.ones(m-1)*(1/del_tau), k=1)
-        T1 += np.diag(np.ones(m-1)*(1/del_tau), k=-1)
-        T2 = np.diag(np.ones(m)*(-1*(2/del_tau+2/del_feh)))
-        T2[0][0] = T2[-1][-1] = -1*(1/del_tau+2/del_feh)
-        T2 += np.diag(np.ones(m-1)*(1/del_tau), k=1)
-        T2 += np.diag(np.ones(m-1)*(1/del_tau), k=-1)
+        T1 = np.diag(np.ones(m)*(-3))
+        T1[0][0] = T1[-1][-1] = -2
+        T1 += np.diag(np.ones(m-1), k=1)
+        T1 += np.diag(np.ones(m-1), k=-1)
+        T2 = np.diag(np.ones(m)*(-4))
+        T2[0][0] = T2[-1][-1] = -3
+        T2 += np.diag(np.ones(m-1), k=1)
+        T2 += np.diag(np.ones(m-1), k=-1)
         T_repeat = [T1] + [T2 for i in range(l-2)] + [T1]
         T = block_diag(*T_repeat)
-        T += np.diag(np.ones(k-m)*(1/del_feh), k=m)
-        T += np.diag(np.ones(k-m)*(1/del_feh), k=-m)
-
-    # Second derivative matrix
-    # T = np.diag(np.ones(m)*2)
-    # T += np.diag(np.ones(m-1)*(-5), k=1)
-    # T += np.diag(np.ones(m-2)*4, k=2)
-    # T += np.diag(np.ones(m-3)*(-1), k=3)
-    # T[-2, -1] = T[-3, -1] = T[-3, -2] = 0
-    # T[-3, -6:-3] = T[-2, -5:-2] = T[-1, -4:-1] = np.array([-1, 4, -5])
+        T += np.diag(np.ones(k-m), k=m)
+        T += np.diag(np.ones(k-m), k=-m)
 
     # Tw = T matrix, with each column multiplied by w(j)
     Tw = T * w
