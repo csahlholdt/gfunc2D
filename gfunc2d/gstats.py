@@ -105,7 +105,39 @@ def gfunc_age(g, norm=True, norm_method='maxone'):
     return g_age
 
 
-def gfunc_age_mode(g_age, age_grid, use_mean=False):
+def gfunc_age_quantile(g_age, age_grid, q):
+    '''
+    The the q'th quantile of the 1D age G function
+    interpolated onto the age grid.
+    (q = 0.5 gives the median age)
+
+    Parameters
+    ----------
+    g_age : array
+        1D age G function.
+
+    age_grid: array
+        The age values on which `g_age` is defined.
+        Must be same length as g_age.
+
+    q : float
+        Quantile to compute, which must be between 0 and 1.
+
+    Returns
+    -------
+    age_q : float
+        Age quantile.
+    '''
+
+    g_age_cumsum = np.cumsum(g_age)
+    g_age_cumsum /= g_age_cumsum[-1]
+    age_q_ind = np.argmin((np.abs(g_age_cumsum-q)))
+    age_q = age_grid[age_q_ind]
+
+    return age_q
+
+
+def gfunc_age_mode(g_age, age_grid, use_median=False):
     '''
     Get the mode or mean of a 1D age G function.
 
@@ -118,8 +150,8 @@ def gfunc_age_mode(g_age, age_grid, use_mean=False):
         The age values on which `g_age` is defined.
         Must be same length as g_age.
 
-    use_mean : bool, optional
-        Use mean instead of mode if True.
+    use_median : bool, optional
+        Use median instead of mode if True.
         Default is False.
 
     Returns
@@ -128,8 +160,8 @@ def gfunc_age_mode(g_age, age_grid, use_mean=False):
         Mode (or mean) of the 1D age G function.
     '''
 
-    if use_mean:
-        age_mode = np.average(age_grid, weights=g_age)
+    if use_median:
+        age_mode = gfunc_age_quantile(g_age, age_grid, 0.5)
     else:
         ind = np.argmax(g_age)
         age_mode = age_grid[ind]
@@ -163,7 +195,7 @@ def conf_glim(conf_level):
     return glim
 
 
-def gfunc_age_conf(g_age, age_grid, conf_level=0.68):
+def gfunc_age_conf(g_age, age_grid, conf_level=0.68, use_median=False):
     '''
     Get the confidence interval of the age from a 1D G function.
 
@@ -189,10 +221,13 @@ def gfunc_age_conf(g_age, age_grid, conf_level=0.68):
         hitting the edge of the age_grid).
     '''
 
-    glim = conf_glim(conf_level)
-
-    ages_lim = age_grid[g_age > glim]
-    age_low, age_high = ages_lim[0], ages_lim[-1]
+    if use_median:
+        age_low = gfunc_age_quantile(g_age, age_grid, 0.5-conf_level/2)
+        age_high = gfunc_age_quantile(g_age, age_grid, 0.5+conf_level/2)
+    else:
+        glim = conf_glim(conf_level)
+        ages_lim = age_grid[g_age > glim]
+        age_low, age_high = ages_lim[0], ages_lim[-1]
 
     if age_low == age_grid[0]:
         age_low = None
@@ -204,7 +239,7 @@ def gfunc_age_conf(g_age, age_grid, conf_level=0.68):
 
   
 def age_mode_and_conf(g_age, age_grid, conf_levels=[0.68, 0.90],
-                      use_mean=False):
+                      use_median=False):
     '''
     Get the mode (or mean) and confidence interval for a 1D age G function
     with a number of confidence intervals.
@@ -222,8 +257,8 @@ def age_mode_and_conf(g_age, age_grid, conf_levels=[0.68, 0.90],
         Confidence levels as fractions (between 0 and 1).
         Default value is [0.68, 0.90].
 
-    use_mean : bool, optional
-        Use mean instead of mode if True.
+    use_median : bool, optional
+        Use median instead of mode if True.
         Default is False.
 
     Returns
@@ -239,29 +274,20 @@ def age_mode_and_conf(g_age, age_grid, conf_levels=[0.68, 0.90],
     n = len(conf_levels)
     age_arr = np.zeros(1+2*n)
 
-    age_arr[n] = gfunc_age_mode(g_age, age_grid, use_mean)
+    age_arr[n] = gfunc_age_mode(g_age, age_grid, use_median)
     for i in range(1, n+1):
         try:
             age_arr[n-i:n+i+1:2*i] = gfunc_age_conf(g_age, age_grid,
-                                                    conf_level=conf_levels[i-1])
+                                                    conf_level=conf_levels[i-1],
+                                                    use_median=use_median)
         except:
             age_arr[:] = None
             break
 
-    # Ensure that the mean value is inside the confidence limits
-    # (this is always the case for the mode)
-    if use_mean:
-        for i in range(0, n):
-            if age_arr[i] > age_arr[n]:
-                age_arr[i] = age_arr[n]
-        for i in range(n+1, 2*n+1):
-            if age_arr[i] < age_arr[n]:
-                age_arr[i] = age_arr[n]
-
     return age_arr
 
 
-def print_age_stats(output_h5, filename, smooth=False, use_mean=False):
+def print_age_stats(output_h5, filename, smooth=False, use_median=False):
     '''
     Function for printing ages and confidence intervals to a text file
     based on an output hdf5 file (containing the 2D G functions).
@@ -284,8 +310,8 @@ def print_age_stats(output_h5, filename, smooth=False, use_mean=False):
         output_h5 are 1D, nothing happens.
         Default value is False.
 
-    use_mean : bool, optional
-        Use mean of G function instead of mode if True.
+    use_median : bool, optional
+        Use median of G function instead of mode if True.
         Default is False.
     '''
 
@@ -314,7 +340,7 @@ def print_age_stats(output_h5, filename, smooth=False, use_mean=False):
             else:
                 g_age = g
             g_age = norm_gfunc(g_age)
-            age_arr[i] = age_mode_and_conf(g_age, ages, use_mean=use_mean)
+            age_arr[i] = age_mode_and_conf(g_age, ages, use_median=use_median)
 
         # Pad identifier strings (for prettier output)
         id_len = max((10, max([len(x) for x in star_id])))
