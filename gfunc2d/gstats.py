@@ -467,6 +467,19 @@ def estimate_samd(gfunc_files, case='1D', betas=None, alpha=0, stars=None,
             for starid in gfile['gfuncs']:
                 if stars is None or starid in stars_i:
                     gfunc = gfile['gfuncs/' + starid][:]
+                    # Make gfunc more coarse (optionally, increases performance)
+                    if grid_slice is not None:
+                        if saved_2d:
+                            gfunc = gfunc[grid_slice[0]:grid_slice[1],
+                                          grid_slice[2]:grid_slice[3]]
+                        else:
+                            gfunc = gfunc[grid_slice[0]:grid_slice[1]]
+
+                    if grid_thin is not None:
+                        if saved_2d:
+                            gfunc = gfunc[::grid_thin[0], ::grid_thin[1]]
+                        else:
+                            gfunc = gfunc[::grid_thin[0]]
                     #gfunc = smooth_gfunc2d(gfunc)
                     gfunc = norm_gfunc(gfunc)
                     g2d.append(gfunc)
@@ -475,19 +488,9 @@ def estimate_samd(gfunc_files, case='1D', betas=None, alpha=0, stars=None,
 
     # Make grid more coarse (optionally, increases performance)
     if grid_slice is not None:
-        if saved_2d:
-            g2d = g2d[:, grid_slice[0]:grid_slice[1],
-                         grid_slice[2]:grid_slice[3]]
-        else:
-            g2d = g2d[:, grid_slice[0]:grid_slice[1]]
         tau_grid = tau_grid[grid_slice[0]:grid_slice[1]]
         feh_grid = feh_grid[grid_slice[2]:grid_slice[3]]
-
     if grid_thin is not None:
-        if saved_2d:
-            g2d = g2d[:, ::grid_thin[0], ::grid_thin[1]]
-        else:
-            g2d = g2d[:, ::grid_thin[0]]
         tau_grid = tau_grid[::grid_thin[0]]
         feh_grid = feh_grid[::grid_thin[1]]
 
