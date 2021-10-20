@@ -3,7 +3,7 @@ from gfunc2d.gfunc2dmain import gfunc2d_run
 # Define input file, output directory, and path to an isochrone grid
 inputfile = '/Users/csahlholdt/code/gfunc2D/examples/HDinput.txt'
 outputdir = '/Users/csahlholdt/code/gfunc2D/examples/HDoutput/'
-isogrid = '/Users/csahlholdt/isochrones/grids/MIST/MIST_v0_pmax3.h5'
+isogrid = '/Users/csahlholdt/isochrones/grids/PARSEC/3.3/PARSEC_label6_interp.h5'
 
 # Choose the figures to be produced
 make_gplots = True
@@ -17,12 +17,13 @@ output_ages = True
 # NOTE: The names must macth the name of the corresponding parameter in the
 # isochrone grid; therefore, the effective temperature is called 'logT'.
 inputnames = ('sid', 'FeHini', 'FeHini_unc', 'logT', 'logT_unc',
-              'logg', 'logg_unc', 'plx', 'plx_unc', 'B', 'B_unc',
-              'V', 'V_unc')
+              'logg', 'logg_unc', 'plx', 'plx_unc', 'V', 'V_unc',
+              'Ks', 'Ks_unc')
 
 # Set the parameters which are fitted to
 # This must be a subset of the above 'inputnames'
-fitnames = ('FeHini', 'logT', 'V', 'plx')
+fitnames = ('FeHini', 'logT', 'logg')
+#fitnames = ('FeHini', 'logT', 'Ks', 'plx')
 
 # Value of [alpha/Fe]
 alpha = 0.0
