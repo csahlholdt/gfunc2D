@@ -348,8 +348,9 @@ def print_age_stats(output_h5, filename, smooth=False, use_median=False):
 
         # Combine identifiers and data in DataFrame and write to txt
         pd_arr = pd.DataFrame(age_arr, index=star_id_pad)
+        astr = 'aMedian' if use_median else 'aMode'
         pd_arr.to_csv(filename, sep='\t', index_label='#IDnumber',
-                      header=['5', '16', 'Mode', '84', '95'],
+                      header=['a5', 'a16', astr, 'a84', 'a95'],
                       float_format='%2.2f', na_rep='nan')
 
 

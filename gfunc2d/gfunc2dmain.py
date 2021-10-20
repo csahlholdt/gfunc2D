@@ -288,6 +288,9 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
 
         # Save G-function
         with h5py.File(output_h5, 'r+') as h5out:
+            if name in h5out['gfuncs']:
+                print(' Star_id already in output, skipping...')
+                continue
             if save2d:
                 h5out['gfuncs'].create_dataset(name, data=g)
             else:
@@ -352,5 +355,7 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
 
     # Optionally, write ages to text file
     if output_ages:
-        output_ages_file = os.path.join(outputdir, 'ages.txt')
-        print_age_stats(output_h5, output_ages_file)
+        output_ages_file_mode = os.path.join(outputdir, 'ages_mode.txt')
+        output_ages_file_median = os.path.join(outputdir, 'ages_median.txt')
+        print_age_stats(output_h5, output_ages_file_mode, use_median=False)
+        print_age_stats(output_h5, output_ages_file_median, use_median=True)
