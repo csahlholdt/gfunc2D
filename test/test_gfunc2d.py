@@ -11,7 +11,7 @@ mpls.use('classic')
 import time
 
 # Isochrone grid path
-isogrid = '/Users/christian/isochrones/grids/YY/YY.h5'
+isogrid = '/Users/csahlholdt/isochrones/grids/PARSEC/3.3/PARSEC_label6_interp.h5'
 
 # Define the true parameters (indicated by '0' in the variable name):
 feh0 = -0.5  # True [Fe/H]
@@ -28,10 +28,9 @@ print('initial mass      =', Mini0,'Msun')
 print('parallax          =', plx0, 'mas')
 print('')
 
-q0 = {}
 # Calculate the isochrone (q0) for the true age and metallicity
 with h5py.File(isogrid, 'r') as gridfile:
-    q0 = get_isochrone(gridfile, alpha0, feh0, tau0)
+    q0 = get_isochrone(gridfile, alpha0, feh0, tau0)[0]
 
 Mini = q0['Mini']
 if Mini0 > max(Mini):
@@ -47,10 +46,6 @@ mu0 = 5 * np.log10(100/plx0)
 # True absolute and observed G magnitude, colours, and other parameters
 Gabs0 = q0['G'][k]
 Gapp0 = Gabs0 + mu0
-UmB0 = q0['U'][k] - q0['B'][k]
-BmV0 = q0['B'][k] - q0['V'][k] 
-VmR0 = q0['V'][k] - q0['R'][k]
-VmI0 = q0['V'][k] - q0['I'][k]
 GmJ0 = q0['G'][k] - q0['J'][k]
 GmH0 = q0['G'][k] - q0['H'][k]
 GmK0 = q0['G'][k] - q0['Ks'][k]
@@ -63,10 +58,6 @@ print('Calculated true observables:')
 print('Absolute G mag    =', Gabs0)
 print('Apparent G mag    =', Gapp0)
 print('log(T)            =', logT0)
-print('U - B             =', UmB0)
-print('B - V             =', BmV0)
-print('V - R             =', VmR0)
-print('V - I             =', VmI0)
 print('G - J             =', GmJ0)
 print('G - H             =', GmH0)
 print('G - Ks            =', GmK0)
@@ -92,14 +83,14 @@ dfeh = 0.5
 #dtau = 0.5
 #dfeh = 0.4
 with h5py.File(isogrid, 'r') as gridfile:
-    q1 = get_isochrone(gridfile, alpha0, feh0, tau0+dtau)
-    q2 = get_isochrone(gridfile, alpha0, feh0, tau0-dtau)
-    q3 = get_isochrone(gridfile, alpha0, feh0+dfeh, tau0)
-    q4 = get_isochrone(gridfile, alpha0, feh0-dfeh, tau0)
-    q5 = get_isochrone(gridfile, alpha0, feh0+dfeh, tau0+dtau)
-    q6 = get_isochrone(gridfile, alpha0, feh0+dfeh, tau0-dtau)
-    q7 = get_isochrone(gridfile, alpha0, feh0-dfeh, tau0+dtau)
-    q8 = get_isochrone(gridfile, alpha0, feh0-dfeh, tau0-dtau)
+    q1 = get_isochrone(gridfile, alpha0, feh0, tau0+dtau)[0]
+    q2 = get_isochrone(gridfile, alpha0, feh0, tau0-dtau)[0]
+    q3 = get_isochrone(gridfile, alpha0, feh0+dfeh, tau0)[0]
+    q4 = get_isochrone(gridfile, alpha0, feh0-dfeh, tau0)[0]
+    q5 = get_isochrone(gridfile, alpha0, feh0+dfeh, tau0+dtau)[0]
+    q6 = get_isochrone(gridfile, alpha0, feh0+dfeh, tau0-dtau)[0]
+    q7 = get_isochrone(gridfile, alpha0, feh0-dfeh, tau0+dtau)[0]
+    q8 = get_isochrone(gridfile, alpha0, feh0-dfeh, tau0-dtau)[0]
 
 isochrones = [q1, q2, q3, q4, q5, q6, q7, q8]
 lines = ['--k', '--k', '-r', '-b', '--r', '--r', '--b', '--b']
@@ -128,7 +119,7 @@ fitparams = {'G': (round(Gapp0, 3), 0.01),
              #'G-H': (GmH0, 0.01),
              #'G-J': (GmJ0, 0.01),
              #'V-I': (VmI0, 0.01),
-             'FeH': (feh0, 0.20),
+             'FeHini': (feh0, 0.20),
              'logT': (int(10**(logT0)), 100),
              'plx': (plx_obs, plx_err)}
 
@@ -136,14 +127,14 @@ fitparams = {'G': (round(Gapp0, 3), 0.01),
 alpha_assumed = alpha0
 
 # Load isogrid as dict
-print('\nLoading datafile...')
+print('\nLoading isochrones...')
 with h5py.File(isogrid, 'r') as gridfile:
     isodict = load_as_dict(gridfile, (alpha0, alpha0))
 
 # Calculate the 2D G-function
 print('\nComputing 2D G-function...')
 t0 = time.time()
-g, tau_array, feh_array = gfunc2D(isogrid, fitparams, alpha_assumed, isodict=isodict)
+g, tau_array, feh_array = gfunc2d(isogrid, fitparams, alpha_assumed, isodict=isodict)
 t1 = time.time()
 print('Calculation time:', round(t1-t0, 3), 'seconds')
 
