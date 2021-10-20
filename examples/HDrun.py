@@ -31,8 +31,5 @@ alpha = 0.0
 ########## END OF INPUT ##########
 ##################################
 
-if make_hrplots:
-    make_hrplots = hr_axes
-
 gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
-            alpha, make_gplots, make_hrplots)
+            alpha, make_gplots, make_hrplots, hr_axes)

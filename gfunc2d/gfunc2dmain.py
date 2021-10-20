@@ -62,7 +62,7 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None, margm_fast=True):
 
     ### Some fixed parameters which could be given as input instead
     # Exponent for power-law IMF
-    beta = 2.7
+    beta = 2.35
 
     # Prior on the distance modulus
     mu_prior = 10
@@ -211,9 +211,73 @@ def gfunc2d(isogrid, fitparams, alpha, isodict=None, margm_fast=True):
 
 def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
                 alpha=0.0, make_gplots=True, make_hrplots=False,
-                output_ages=True, margm_fast=True, save2d=True):
+                hr_axes=None, output_ages=True, margm_fast=True,
+                save2d=True):
     '''
-    docstring
+    Run gfunc2d on a list of stars with parameters given in a text file.
+    The output G-functions are saved to an HDF5 file.
+
+    Parameters
+    ----------
+    inputfile : str
+        Name of the input file (including the full path) with one line
+        of data for each star and columns separated by whitespace.
+
+    isogrid : str
+        Name of the isochrone hdf5 grid (including the full path).
+
+    outputdir : str
+        Name of the output directory.
+        The directory will be created if it does not exist.
+
+    inputnames : list
+        List containing the names of the parameters in the columns of
+        the input file. For parameters which are to be used in the fit
+        the name must match the name of the corresponding parameter in
+        the models. E.g. for surface gravity, the name must be 'logg'.
+
+    fitnames : list
+        List containing the names of the parameters to be fitted.
+        This must be a subset of inputnames.
+
+    alpha : float, optional
+        Value of [alpha/Fe]. Must exist in the grid.
+        Default value is 0.0.
+
+    make_gplots : bool, optional
+        If True, the 2D G-function of each star is plotted and saved
+        to the output directory.
+        Default value is True.
+
+    make_hrplots : bool, optional
+        If True, an HR diagram is plotted for each star and saved
+        to the output directory.
+        Default value is False.
+
+    hr_axes : tuple, optional
+        Tuple giving the parameters to plot on the x and y-axis of
+        the HR diagram. E.g. ('logT', 'logg')
+        Only used if make_hrplots is True.
+        Default value is None.
+
+    output_ages : bool, optional
+        If True, individual age estimates are saved to text files in
+        the output directory. Two files are saved: one with the mode
+        of the G-function as the age estimate and another with the
+        median.
+        Default value is True.
+
+    margm_fast : bool, optional
+        If fitting to the parallax ('plx' in fitparams), one can choose a fast
+        method for the marginalisation over the distance modulus by setting this
+        value to True. A slower (but slightly more exact) method is used
+        otherwise.
+        Default value is True.
+
+    save2d : bool, optional
+        If True, the 2D G-functions are saved in full in the output file.
+        Otherwise, only the 1D age G-functions are saved.
+        Default value is True.
     '''
 
     # Get the date and time
@@ -305,8 +369,7 @@ def gfunc2d_run(inputfile, isogrid, outputdir, inputnames, fitnames,
             contour_save(g, tau_array, feh_array, contour_name)
 
         # Save plots of HR-diagram if make_hrplots
-        if make_hrplots is not False:
-            hr_axes = make_hrplots
+        if make_hrplots and hr_axes is not None:
             # Find index of relevant data in input and in grid
             try:
                 hrx_data_index = inputnames.index(hr_axes[0])
